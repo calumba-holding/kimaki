@@ -598,9 +598,11 @@ This is a software development environment. The speaker is giving instructions t
  - If no queue intent is detected, omit queueMessage or set it to false.
 ${agents && agents.length > 0 ? `
  AGENT SELECTION:
- - If the user explicitly says "use the X agent", "switch to X agent", "with the X agent", or similar phrasing naming a specific agent, set the agent field to that agent name.
+ - Only set the agent field when the user explicitly says phrases like "use the X agent", "switch to X agent", "with the X agent", or similar phrasing that clearly names a specific agent to switch to.
+ - Do NOT set agent just because the user uses a word that matches an agent name in normal speech. For example, "plan the refactor" or "plan how to do this" is a normal instruction (the verb "plan"), NOT a request to use the "plan" agent. The user must explicitly say "use the plan agent" or "switch to plan agent" for it to count.
  - Remove the agent instruction from the transcription text itself — only include the actual message content.
  - Example: "Use the plan agent. Refactor the auth module" → transcription: "Refactor the auth module", agent: "plan"
+ - Example: "Plan how to refactor the auth module" → transcription: "Plan how to refactor the auth module", agent: NOT SET (this is a normal instruction, not an agent switch)
  - If removing the agent phrase would leave empty content, keep the full spoken text as the transcription.
  - Only set agent if the user explicitly names one. Do not infer an agent from the task content.
  - If no agent is mentioned, omit the agent field entirely.
