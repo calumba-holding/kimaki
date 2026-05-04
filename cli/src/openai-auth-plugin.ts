@@ -14,7 +14,7 @@
  * Account management is done via `kimaki multioauth openai` CLI commands.
  */
 
-import type { Plugin } from '@opencode-ai/plugin'
+import type { Hooks, Plugin } from '@opencode-ai/plugin'
 import { createPluginLogger, appendToastSessionMarker } from './plugin-logger.js'
 import { isRateLimitRetryMessage, isTokenRefreshError, isOAuthStored, readJson, authFilePath } from './oauth-rotation-shared.js'
 import {
@@ -34,29 +34,17 @@ type RetryStatusEvent = {
     sessionID: string
     status: {
       type: 'retry'
+      attempt: number
       message: string
+      next: number
     }
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-function isRetryStatusEvent(event: unknown): event is RetryStatusEvent {
-  if (!isRecord(event) || event.type !== 'session.status') return false
-  if (!isRecord(event.properties)) return false
+function isRetryStatusEvent(event: Parameters<NonNullable<Hooks['event']>>[0]['event']): event is RetryStatusEvent {
+  if (event.type !== 'session.status') return false
   const status = event.properties.status
-  if (!isRecord(status)) return false
   return status.type === 'retry' && typeof status.message === 'string'
-}
-
-function isSessionIdleEvent(event: unknown): boolean {
-  if (!isRecord(event) || event.type !== 'session.status') return false
-  if (!isRecord(event.properties)) return false
-  const status = event.properties.status
-  if (!isRecord(status)) return false
-  return status.type === 'idle'
 }
 
 // --- Model detection ---
@@ -95,14 +83,11 @@ const openaiRotationPlugin: Plugin = async ({ client }) => {
     },
 
     event: async ({ event }) => {
-      const eventType = isRecord(event) ? (event as Record<string, unknown>).type : 'unknown'
-      if (eventType === 'session.status') {
-        const props = isRecord(event) ? (event as Record<string, unknown>).properties : undefined
-        const statusType = isRecord(props) ? (props as Record<string, unknown>).status : undefined
-        log.info('session.status event', isRecord(statusType) ? (statusType as Record<string, unknown>).type : 'unknown-status')
+      if (event.type === 'session.status') {
+        log.info('session.status event', event.properties.status.type)
       }
       // 1. Detect new logins on idle events (session just became ready)
-      if (isSessionIdleEvent(event)) {
+      if (event.type === 'session.status' && event.properties.status.type === 'idle') {
         const now = Date.now()
         if (now - lastLoginCheckMs >= LOGIN_CHECK_INTERVAL_MS) {
           lastLoginCheckMs = now
@@ -111,15 +96,12 @@ const openaiRotationPlugin: Plugin = async ({ client }) => {
             const label = identity.email || identity.accountId || 'unknown'
             const store = await loadOpenAIAccountStore().catch(() => undefined)
             const count = store?.accounts.length ?? 1
-            const sessionID = isRecord(event) && isRecord((event as Record<string, unknown>).properties)
-              ? ((event as Record<string, unknown>).properties as Record<string, unknown>).sessionID
-              : undefined
             client.tui
               .showToast({
                 body: {
                   message: appendToastSessionMarker({
                     message: `OpenAI account ${label} added to rotation pool (${count} account${count === 1 ? '' : 's'})`,
-                    sessionId: typeof sessionID === 'string' ? sessionID : undefined,
+                    sessionId: event.properties.sessionID,
                   }),
                   variant: 'info',
                 },
