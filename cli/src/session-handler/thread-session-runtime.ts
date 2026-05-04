@@ -40,6 +40,7 @@ import { formatPart } from '../message-formatting.js'
 import {
   getChannelVerbosity,
   getPartMessageIds,
+  getPrisma,
   setPartMessage,
   getThreadSession,
   setThreadSession,
@@ -457,22 +458,16 @@ export function deriveThreadNameFromSessionTitle({
 export function deriveThreadRenameFromSessionUpdate({
   sessionTitle,
   currentName,
-  lastBotAppliedName,
-  userRenamedThread,
+  lastSyncedName,
 }: {
   sessionTitle: string | undefined | null
   currentName: string
-  lastBotAppliedName: string | undefined
-  userRenamedThread: boolean
+  lastSyncedName: string | null
 }) {
-  const nextUserRenamedThread =
-    userRenamedThread ||
-    (lastBotAppliedName !== undefined && currentName !== lastBotAppliedName)
-  if (nextUserRenamedThread) {
+  if (lastSyncedName !== null && currentName !== lastSyncedName) {
     return {
-      userRenamedThread: true,
       desiredName: null,
-      observedSyncedName: null,
+      nextSyncedName: lastSyncedName,
     }
   }
 
@@ -482,23 +477,20 @@ export function deriveThreadRenameFromSessionUpdate({
   })
   if (candidate === null) {
     return {
-      userRenamedThread: false,
       desiredName: null,
-      observedSyncedName: null,
+      nextSyncedName: lastSyncedName,
     }
   }
   if (candidate === currentName) {
     return {
-      userRenamedThread: false,
       desiredName: null,
-      observedSyncedName: currentName,
+      nextSyncedName: currentName,
     }
   }
 
   return {
-    userRenamedThread: false,
     desiredName: candidate,
-    observedSyncedName: null,
+    nextSyncedName: candidate,
   }
 }
 
@@ -659,11 +651,9 @@ export class ThreadSessionRuntime {
   // once (which is a no-op via deriveThreadNameFromSessionTitle).
   private appliedOpencodeTitle: string | undefined
 
-  // Last Discord thread name known to match the OpenCode title. If Discord
-  // later reports a different current name, the user manually renamed the
-  // thread and title sync stays disabled for this runtime session.
-  private lastBotAppliedName: string | undefined
-  private userRenamedThread = false
+  // Last Discord thread name known to match the OpenCode title. Persisted so a
+  // user rename is still respected after Kimaki restarts.
+  private lastSyncedThreadName: string | null | undefined
 
   // Part output buffering (write-side cache, not domain state)
   private partBuffer = new Map<string, Map<string, Part>>()
@@ -2878,17 +2868,30 @@ export class ThreadSessionRuntime {
     if (info.id !== this.state?.sessionId) {
       return
     }
+    if (this.lastSyncedThreadName === undefined) {
+      const persistedName = await this.loadLastSyncedThreadName().catch(
+        (e) =>
+          new Error('Failed to read persisted thread rename state', { cause: e }),
+      )
+      if (persistedName instanceof Error) {
+        logger.warn(`[TITLE] ${persistedName.message} for thread ${this.threadId}`)
+        return
+      }
+      this.lastSyncedThreadName = persistedName
+    }
+
     const renameDecision = deriveThreadRenameFromSessionUpdate({
       sessionTitle: info.title,
       currentName: this.thread.name,
-      lastBotAppliedName: this.lastBotAppliedName,
-      userRenamedThread: this.userRenamedThread,
+      lastSyncedName: this.lastSyncedThreadName,
     })
-    this.userRenamedThread = renameDecision.userRenamedThread
-    if (renameDecision.observedSyncedName !== null) {
-      this.lastBotAppliedName = renameDecision.observedSyncedName
-    }
     if (renameDecision.desiredName === null) {
+      if (
+        renameDecision.nextSyncedName !== null &&
+        renameDecision.nextSyncedName !== this.lastSyncedThreadName
+      ) {
+        await this.persistLastSyncedThreadName(renameDecision.nextSyncedName)
+      }
       return
     }
     const { desiredName } = renameDecision
@@ -2930,10 +2933,38 @@ export class ThreadSessionRuntime {
       )
       return
     }
-    this.lastBotAppliedName = desiredName
+    await this.persistLastSyncedThreadName(desiredName)
     logger.log(
       `[TITLE] Renamed thread ${this.threadId} to "${desiredName}" from OpenCode session title`,
     )
+  }
+
+  private async loadLastSyncedThreadName() {
+    const prisma = await getPrisma()
+    const row = await prisma.thread_sessions.findUnique({
+      where: { thread_id: this.threadId },
+      select: { last_synced_name: true },
+    })
+    return row?.last_synced_name ?? null
+  }
+
+  private async persistLastSyncedThreadName(name: string): Promise<void> {
+    this.lastSyncedThreadName = name
+    const prisma = await getPrisma()
+    const result = await prisma.thread_sessions
+      .update({
+        where: { thread_id: this.threadId },
+        data: { last_synced_name: name },
+      })
+      .catch(
+        (e) =>
+          new Error('Failed to persist thread rename state', {
+            cause: e,
+          }),
+      )
+    if (result instanceof Error) {
+      logger.warn(`[TITLE] ${result.message} for thread ${this.threadId}`)
+    }
   }
 
   private async handleTuiToast(properties: {

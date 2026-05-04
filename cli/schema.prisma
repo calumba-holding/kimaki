@@ -12,10 +12,11 @@ datasource db {
 }
 
 model thread_sessions {
-  thread_id  String    @id
-  session_id String
-  source     ThreadSessionSource @default(kimaki)
-  created_at DateTime? @default(now())
+  thread_id            String    @id
+  session_id           String
+  source               ThreadSessionSource @default(kimaki)
+  last_synced_name     String?
+  created_at           DateTime? @default(now())
 
   part_messages   part_messages[]
   session_events  session_events[]

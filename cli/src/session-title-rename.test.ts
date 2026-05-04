@@ -133,53 +133,32 @@ describe('deriveThreadNameFromSessionTitle', () => {
 })
 
 describe('deriveThreadRenameFromSessionUpdate', () => {
-  test('skips auto-rename after the user changes a bot-applied name', () => {
+  test('skips auto-rename after the thread differs from the persisted synced name', () => {
     expect(
       deriveThreadRenameFromSessionUpdate({
         sessionTitle: 'New OpenCode title',
         currentName: 'custom name from user',
-        lastBotAppliedName: 'Old OpenCode title',
-        userRenamedThread: false,
+        lastSyncedName: 'Old OpenCode title',
       }),
     ).toMatchInlineSnapshot(`
       {
         "desiredName": null,
-        "observedSyncedName": null,
-        "userRenamedThread": true,
+        "nextSyncedName": "Old OpenCode title",
       }
     `)
   })
 
-  test('keeps manual rename locked for the rest of the runtime session', () => {
+  test('returns desired name while thread still matches the persisted synced name', () => {
     expect(
       deriveThreadRenameFromSessionUpdate({
         sessionTitle: 'New OpenCode title',
         currentName: 'Old OpenCode title',
-        lastBotAppliedName: 'Old OpenCode title',
-        userRenamedThread: true,
-      }),
-    ).toMatchInlineSnapshot(`
-      {
-        "desiredName": null,
-        "observedSyncedName": null,
-        "userRenamedThread": true,
-      }
-    `)
-  })
-
-  test('returns desired name while thread still matches the bot-applied name', () => {
-    expect(
-      deriveThreadRenameFromSessionUpdate({
-        sessionTitle: 'New OpenCode title',
-        currentName: 'Old OpenCode title',
-        lastBotAppliedName: 'Old OpenCode title',
-        userRenamedThread: false,
+        lastSyncedName: 'Old OpenCode title',
       }),
     ).toMatchInlineSnapshot(`
       {
         "desiredName": "New OpenCode title",
-        "observedSyncedName": null,
-        "userRenamedThread": false,
+        "nextSyncedName": "New OpenCode title",
       }
     `)
   })
@@ -189,14 +168,12 @@ describe('deriveThreadRenameFromSessionUpdate', () => {
       deriveThreadRenameFromSessionUpdate({
         sessionTitle: 'Old OpenCode title',
         currentName: 'Old OpenCode title',
-        lastBotAppliedName: undefined,
-        userRenamedThread: false,
+        lastSyncedName: null,
       }),
     ).toMatchInlineSnapshot(`
       {
         "desiredName": null,
-        "observedSyncedName": "Old OpenCode title",
-        "userRenamedThread": false,
+        "nextSyncedName": "Old OpenCode title",
       }
     `)
   })

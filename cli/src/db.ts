@@ -199,6 +199,14 @@ async function migrateSchema(prisma: PrismaClient): Promise<void> {
     // Column already exists
   }
 
+  try {
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE thread_sessions ADD COLUMN last_synced_name TEXT',
+    )
+  } catch {
+    // Column already exists
+  }
+
   // Migration: move session_thinking data into session_models.variant.
   // session_thinking table is left in place (not dropped) so older kimaki versions
   // that still reference it won't crash on the same database.
