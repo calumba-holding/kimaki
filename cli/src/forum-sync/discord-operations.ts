@@ -23,6 +23,10 @@ import {
 
 const forumLogger = createLogger('FORUM')
 
+function isTruthy<T>(value: T): value is NonNullable<T> {
+  return value !== null && value !== undefined
+}
+
 export function getCanonicalThreadFilePath({
   outputDir,
   threadId,
@@ -113,7 +117,7 @@ export async function fetchForumThreads({
 
     const timestamps = threads
       .map((thread) => thread.archiveTimestamp ?? thread.createdTimestamp)
-      .filter((value): value is number => value !== null)
+      .filter(isTruthy)
 
     const oldestTimestamp = Math.min(...timestamps)
     if (!Number.isFinite(oldestTimestamp)) break
@@ -237,5 +241,5 @@ export async function loadExistingForumFiles({
     }),
   )
 
-  return loaded.filter((item): item is ExistingForumFile => item !== null)
+  return loaded.filter(isTruthy)
 }
