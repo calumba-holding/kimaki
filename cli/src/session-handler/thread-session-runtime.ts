@@ -413,6 +413,27 @@ const PRESERVED_THREAD_PREFIXES: string[] = [
   'Fork: ',
 ]
 
+function getThreadNameCandidateFromSessionTitle({
+  sessionTitle,
+  currentName,
+}: {
+  sessionTitle: string | undefined | null
+  currentName: string
+}) {
+  const trimmed = sessionTitle?.trim()
+  if (!trimmed) {
+    return null
+  }
+  if (/^new session\s*-/i.test(trimmed)) {
+    return null
+  }
+  const matchedPrefix =
+    PRESERVED_THREAD_PREFIXES.find((p) => {
+      return currentName.startsWith(p)
+    }) ?? ''
+  return `${matchedPrefix}${trimmed}`.slice(0, DISCORD_THREAD_NAME_MAX)
+}
+
 export function deriveThreadNameFromSessionTitle({
   sessionTitle,
   currentName,
@@ -420,22 +441,65 @@ export function deriveThreadNameFromSessionTitle({
   sessionTitle: string | undefined | null
   currentName: string
 }): string | undefined {
-  const trimmed = sessionTitle?.trim()
-  if (!trimmed) {
+  const candidate = getThreadNameCandidateFromSessionTitle({
+    sessionTitle,
+    currentName,
+  })
+  if (candidate === null) {
     return undefined
   }
-  if (/^new session\s*-/i.test(trimmed)) {
-    return undefined
-  }
-  const matchedPrefix =
-    PRESERVED_THREAD_PREFIXES.find((p) => {
-      return currentName.startsWith(p)
-    }) ?? ''
-  const candidate = `${matchedPrefix}${trimmed}`.slice(0, DISCORD_THREAD_NAME_MAX)
   if (candidate === currentName) {
     return undefined
   }
   return candidate
+}
+
+export function deriveThreadRenameFromSessionUpdate({
+  sessionTitle,
+  currentName,
+  lastBotAppliedName,
+  userRenamedThread,
+}: {
+  sessionTitle: string | undefined | null
+  currentName: string
+  lastBotAppliedName: string | undefined
+  userRenamedThread: boolean
+}) {
+  const nextUserRenamedThread =
+    userRenamedThread ||
+    (lastBotAppliedName !== undefined && currentName !== lastBotAppliedName)
+  if (nextUserRenamedThread) {
+    return {
+      userRenamedThread: true,
+      desiredName: null,
+      observedSyncedName: null,
+    }
+  }
+
+  const candidate = getThreadNameCandidateFromSessionTitle({
+    sessionTitle,
+    currentName,
+  })
+  if (candidate === null) {
+    return {
+      userRenamedThread: false,
+      desiredName: null,
+      observedSyncedName: null,
+    }
+  }
+  if (candidate === currentName) {
+    return {
+      userRenamedThread: false,
+      desiredName: null,
+      observedSyncedName: currentName,
+    }
+  }
+
+  return {
+    userRenamedThread: false,
+    desiredName: candidate,
+    observedSyncedName: null,
+  }
 }
 
 // ── Ingress input type ───────────────────────────────────────────
@@ -594,6 +658,12 @@ export class ThreadSessionRuntime {
   // retrying. Not persisted — worst case on restart we re-apply the same title
   // once (which is a no-op via deriveThreadNameFromSessionTitle).
   private appliedOpencodeTitle: string | undefined
+
+  // Last Discord thread name known to match the OpenCode title. If Discord
+  // later reports a different current name, the user manually renamed the
+  // thread and title sync stays disabled for this runtime session.
+  private lastBotAppliedName: string | undefined
+  private userRenamedThread = false
 
   // Part output buffering (write-side cache, not domain state)
   private partBuffer = new Map<string, Map<string, Part>>()
@@ -2808,13 +2878,20 @@ export class ThreadSessionRuntime {
     if (info.id !== this.state?.sessionId) {
       return
     }
-    const desiredName = deriveThreadNameFromSessionTitle({
+    const renameDecision = deriveThreadRenameFromSessionUpdate({
       sessionTitle: info.title,
       currentName: this.thread.name,
+      lastBotAppliedName: this.lastBotAppliedName,
+      userRenamedThread: this.userRenamedThread,
     })
-    if (!desiredName) {
+    this.userRenamedThread = renameDecision.userRenamedThread
+    if (renameDecision.observedSyncedName !== null) {
+      this.lastBotAppliedName = renameDecision.observedSyncedName
+    }
+    if (renameDecision.desiredName === null) {
       return
     }
+    const { desiredName } = renameDecision
     const normalizedTitle = info.title.trim()
     if (this.appliedOpencodeTitle === normalizedTitle) {
       return
@@ -2853,6 +2930,7 @@ export class ThreadSessionRuntime {
       )
       return
     }
+    this.lastBotAppliedName = desiredName
     logger.log(
       `[TITLE] Renamed thread ${this.threadId} to "${desiredName}" from OpenCode session title`,
     )
