@@ -120,7 +120,7 @@ export function createGenAIWorker(
                     genaiWrapperLogger.log(
                       '[GENAI WORKER WRAPPER] Worker did not exit gracefully, terminating...',
                     )
-                    worker.terminate().then(() => {
+                    void worker.terminate().then(() => {
                       genaiWrapperLogger.log('Worker terminated')
                       resolve()
                     })

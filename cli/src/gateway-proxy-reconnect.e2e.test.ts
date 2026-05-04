@@ -361,7 +361,7 @@ describeLocal('gateway-proxy reconnection (local binary)', () => {
   let tmpDir: string
 
   afterAll(async () => {
-    client?.destroy()
+    void client?.destroy()
     if (proxyProcess && !proxyProcess.killed) {
       proxyProcess.kill('SIGTERM')
     }
@@ -451,7 +451,7 @@ describeProd('gateway-proxy reconnection (production)', () => {
   let client: Client
 
   afterEach(() => {
-    client?.destroy()
+    void client?.destroy()
   })
 
   test(

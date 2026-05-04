@@ -1298,7 +1298,7 @@ export async function startDiscordBot({
       await stopHranaServer()
 
       discordLogger.log('Destroying Discord client...')
-      discordClient.destroy()
+      void discordClient.destroy()
 
       discordLogger.log('Cleanup complete.')
       if (!skipExit) {

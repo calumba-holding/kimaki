@@ -362,7 +362,7 @@ e2eTest('thread message queue ordering', () => {
     }
 
     if (botClient) {
-      botClient.destroy()
+      void botClient.destroy()
     }
 
     await stopOpencodeServer()

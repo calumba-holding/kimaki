@@ -397,7 +397,7 @@ e2eTest('voice message handling', () => {
     }
 
     if (botClient) {
-      botClient.destroy()
+      void botClient.destroy()
     }
 
     await stopOpencodeServer()

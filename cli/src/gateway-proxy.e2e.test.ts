@@ -366,7 +366,7 @@ describeIf('gateway-proxy e2e', () => {
     }
 
     if (botClient) {
-      botClient.destroy()
+      void botClient.destroy()
     }
     if (proxyProcess && !proxyProcess.killed) {
       proxyProcess.kill('SIGTERM')

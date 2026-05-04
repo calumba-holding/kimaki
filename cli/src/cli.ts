@@ -1444,7 +1444,7 @@ async function run({
   ])
 
 
-  backgroundUpgradeKimaki()
+  void backgroundUpgradeKimaki()
 
   // Start in-process Hrana server before database init. Required for the bot
   // process because it serves as both the DB server and the single-instance
@@ -1643,7 +1643,7 @@ async function run({
         'Do not share this URL with anyone — it contains your credentials.\n' +
         'Open the URL above to add the bot to a server, then run kimaki again.',
     )
-    discordClient.destroy()
+    void discordClient.destroy()
     process.exit(EXIT_NO_RESTART)
   }
 
@@ -1737,7 +1737,7 @@ async function run({
             'Error:',
             error instanceof Error ? error.stack : String(error),
           )
-          discordClient.destroy()
+          void discordClient.destroy()
           process.exit(EXIT_NO_RESTART)
         }),
       getClient()
@@ -2314,7 +2314,7 @@ async function withTempDiscordClient({
     }
     await onReady(client)
   } finally {
-    client.destroy()
+    void client.destroy()
   }
 }
 
@@ -2808,7 +2808,7 @@ cli
                   resolve()
                 })
                 client.once(Events.Error, reject)
-                client.login(botToken)
+                void client.login(botToken)
               })
 
               // Get guild from existing channels or first available
@@ -2859,7 +2859,7 @@ cli
               channelId = textChannelId
               cliLogger.log(`Created channel: ${channelId}`)
 
-              client.destroy()
+              void client.destroy()
             }
           } catch (e) {
             cliLogger.log('Failed to resolve project')
@@ -3493,7 +3493,7 @@ cli
           resolve()
         })
         client.once(Events.Error, reject)
-        client.login(botToken)
+        void client.login(botToken)
       })
 
       cliLogger.log('Finding guild...')
@@ -3506,7 +3506,7 @@ cli
         if (!foundGuild) {
           cliLogger.log('Guild not found')
           cliLogger.error(`Guild not found: ${guildId}`)
-          client.destroy()
+          void client.destroy()
           process.exit(EXIT_NO_RESTART)
         }
         guild = foundGuild
@@ -3542,7 +3542,7 @@ cli
             if (!firstGuild) {
               cliLogger.log('No guild found')
               cliLogger.error('No guild found. Add the bot to a server first.')
-              client.destroy()
+              void client.destroy()
               process.exit(EXIT_NO_RESTART)
             }
             guild = firstGuild
@@ -3560,7 +3560,7 @@ cli
           if (!firstGuild) {
             cliLogger.log('No guild found')
             cliLogger.error('No guild found. Add the bot to a server first.')
-            client.destroy()
+            void client.destroy()
             process.exit(EXIT_NO_RESTART)
           }
           guild = firstGuild
@@ -3579,7 +3579,7 @@ cli
           try {
             const ch = await client.channels.fetch(existingChannel.channel_id)
             if (ch && 'guild' in ch && ch.guild?.id === guild.id) {
-              client.destroy()
+              void client.destroy()
               cliLogger.error(
                 `Channel already exists for this directory in ${guild.name}. Channel ID: ${existingChannel.channel_id}`,
               )
@@ -3608,7 +3608,7 @@ cli
           botName: client.user?.username,
         })
 
-      client.destroy()
+      void client.destroy()
 
       cliLogger.log('Channels created!')
 
@@ -3874,7 +3874,7 @@ cli
       const found = client.guilds.cache.get(options.guild)
       if (!found) {
         cliLogger.error(`Guild not found: ${options.guild}`)
-        client.destroy()
+        void client.destroy()
         process.exit(EXIT_NO_RESTART)
       }
       guild = found
@@ -3882,7 +3882,7 @@ cli
       const first = client.guilds.cache.first()
       if (!first) {
         cliLogger.error('No guild found. Add the bot to a server first.')
-        client.destroy()
+        void client.destroy()
         process.exit(EXIT_NO_RESTART)
       }
       guild = first
@@ -3894,7 +3894,7 @@ cli
       botName: client.user?.username,
     })
 
-    client.destroy()
+    void client.destroy()
 
     const channelUrl = `https://discord.com/channels/${guild.id}/${textChannelId}`
 

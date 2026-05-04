@@ -245,7 +245,7 @@ describe('runtime lifecycle', () => {
       })
     }
     if (botClient) {
-      botClient.destroy()
+      void botClient.destroy()
     }
     await stopOpencodeServer()
     await Promise.all([

@@ -800,7 +800,7 @@ async function startSingleServer({
         opencodeLogger.log(
           `Restarting server (attempt ${serverRetryCount}/5)`,
         )
-        ensureSingleServer().then(
+        void ensureSingleServer().then(
           (result) => {
             if (result instanceof Error) {
               opencodeLogger.error(`Failed to restart opencode server:`, result)

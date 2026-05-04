@@ -835,7 +835,7 @@ export function setupQueueAdvancedSuite({
     }
 
     if (ctx.botClient) {
-      ctx.botClient.destroy()
+      void ctx.botClient.destroy()
     }
 
     await stopOpencodeServer()

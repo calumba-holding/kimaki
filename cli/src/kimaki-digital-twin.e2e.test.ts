@@ -171,7 +171,7 @@ e2eTest(
       })
 
       if (botClient) {
-        botClient.destroy()
+        void botClient.destroy()
       }
 
       await stopOpencodeServer()

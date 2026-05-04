@@ -170,7 +170,7 @@ e2eTest('/undo sets revert state and cleans up on next prompt', () => {
       const originalAssistantStillExists = finalAssistantMessages.some(
         (m) => {
           return m.parts.some((p) => {
-            return p.type === 'text' && 'text' in p && p.text === 'ok'
+            return p.type === 'text' && p.text === 'ok'
           })
         },
       )

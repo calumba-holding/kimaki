@@ -121,7 +121,7 @@ describe('startup time measurement', () => {
     }
 
     if (botClient) {
-      botClient.destroy()
+      void botClient.destroy()
     }
 
     await Promise.all([
@@ -317,7 +317,7 @@ describe('startup time measurement', () => {
 
     // Destroy and recreate bot client for a clean login measurement
     if (botClient) {
-      botClient.destroy()
+      void botClient.destroy()
       botClient = null
     }
 

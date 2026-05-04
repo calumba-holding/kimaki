@@ -390,7 +390,7 @@ describe('real event stream capture fixtures (cached provider)', () => {
     })
 
     if (botClient) {
-      botClient.destroy()
+      void botClient.destroy()
     }
 
     await stopOpencodeServer()
