@@ -356,7 +356,7 @@ export function getOpencodeSystemMessage({
   threadId,
   channelTopic,
   agents,
-  username,
+  userId,
 }: {
   sessionId: string
   channelId?: string
@@ -367,9 +367,9 @@ export function getOpencodeSystemMessage({
   channelTopic?: string
   agents?: AgentInfo[]
   username?: string
+  userId?: string
 }) {
-  const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`
-  const userArg = ` --user ${shellQuote(username || 'username')}`
+  const userArg = ` --user '${userId || '<discord-user-id>'}'`
   const topicContext = channelTopic?.trim()
     ? `\n\n<channel-topic>\n${channelTopic.trim()}\n</channel-topic>`
     : ''
@@ -436,13 +436,16 @@ kimaki session archive --session ${sessionId}
 
 Only do this when the user explicitly asks to close or archive the thread, and only after your final message.
 
-## searching discord users
+## discord user mentions
 
-To search for Discord users in a guild (needed for mentions like <@userId>), run:
+Prefer Discord user IDs for mentions. Discord bots cannot ping by @name; use \`<@userId>\` in message text or pass the ID to \`--user\`.
+The current user's ID is available in the per-turn \`<discord-user ... user-id="..." />\` metadata.
+
+To search for Discord users in a guild as a best-effort fallback, run:
 
 kimaki user list --guild ${guildId || '<guildId>'} --query "username"
 
-This returns user IDs you can use for Discord mentions.
+This returns user IDs you can use for Discord mentions. It can fail when Server Members Intent is disabled, so prefer IDs from existing Discord metadata or raw mentions when possible.
 ${
   channelId
     ? `
@@ -454,7 +457,7 @@ kimaki send --channel ${channelId} --prompt 'your prompt here' --agent <current_
 
 You can use this to "spawn" parallel helper sessions like teammates: start new threads with focused prompts, then come back and collect the results.
 Prefer passing the current agent with \`--agent <current_agent>\` so spawned or scheduled sessions keep the same agent unless you are intentionally switching. Replace \`<current_agent>\` with the value from the per-turn \`Current agent\` reminder.
-When writing \`kimaki send\` shell commands, use single quotes around \`--prompt\`, \`--user\`, \`--send-at\`, and other literal arguments so backticks inside prompts are not interpreted by the shell.
+When writing \`kimaki send\` shell commands, use single quotes around \`--prompt\`, \`--user\`, \`--send-at\`, and other literal arguments so backticks inside prompts are not interpreted by the shell. Prefer \`--user '<discord-user-id>'\` over \`--user 'name'\` because name lookup depends on optional Server Members Intent.
 
 IMPORTANT: NEVER use \`--worktree\` unless the user explicitly asks for a worktree. Default to creating normal threads without worktrees.
 
@@ -474,7 +477,7 @@ Use --notify-only to create a notification thread without starting an AI session
 
 kimaki send --channel ${channelId} --prompt 'User cancelled subscription' --notify-only --agent <current_agent>${userArg}
 
-Use --user to add a specific Discord user to the new thread:
+Use --user with a Discord user ID or raw mention to add a specific Discord user to the new thread:
 
 kimaki send --channel ${channelId} --prompt 'Review the latest CI failure' --agent <current_agent>${userArg}
 

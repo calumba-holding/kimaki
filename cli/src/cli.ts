@@ -366,6 +366,150 @@ function formatTaskScheduleLine(schedule: ParsedSendAt): string {
 
 const EXIT_NO_RESTART = 64
 
+type GuildMemberSearchResult = {
+  user: { id: string; username: string; global_name?: string }
+  nick?: string
+}
+
+type DiscordUserTarget = {
+  id: string
+  username: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isGuildMemberSearchResult(value: unknown): value is GuildMemberSearchResult {
+  if (!isRecord(value)) {
+    return false
+  }
+  const user = value['user']
+  return (
+    isRecord(user) &&
+    typeof user['id'] === 'string' &&
+    typeof user['username'] === 'string'
+  )
+}
+
+function getDiscordUserIdFromUserOption(user: string): string | null {
+  const trimmed = user.trim()
+  const mentionMatch = trimmed.match(/^<@!?(\d{15,25})>$/)
+  if (mentionMatch?.[1]) {
+    return mentionMatch[1]
+  }
+  if (/^\d{15,25}$/.test(trimmed)) {
+    return trimmed
+  }
+  return null
+}
+
+function readErrorField(error: unknown, key: string): unknown {
+  if (!isRecord(error)) {
+    return undefined
+  }
+
+  const directValue = error[key]
+  if (directValue !== undefined) {
+    return directValue
+  }
+
+  const rawError = error['rawError']
+  if (isRecord(rawError) && rawError[key] !== undefined) {
+    return rawError[key]
+  }
+
+  const cause = error['cause']
+  if (cause) {
+    return readErrorField(cause, key)
+  }
+
+  return undefined
+}
+
+function isDiscordMemberLookupUnavailable(error: unknown): boolean {
+  const status = readErrorField(error, 'status')
+  if (status === 403) {
+    return true
+  }
+
+  const code = readErrorField(error, 'code')
+  if (code === 50001 || code === 50013) {
+    return true
+  }
+
+  const message = String(readErrorField(error, 'message') || '').toLowerCase()
+  return (
+    (message.includes('missing access') ||
+      message.includes('missing permissions') ||
+      message.includes('intent')) &&
+    message.includes('member')
+  )
+}
+
+function formatMemberLookupUnavailableMessage(): string {
+  return [
+    'Discord member search is unavailable for this bot.',
+    'Most Kimaki features still work. Searching names with `--user` needs Server Members Intent.',
+    'Use a Discord user ID or raw mention with the same `--user` flag instead:',
+    `  kimaki send --channel <channelId> --prompt '...' --user 535922349652836367`,
+    `  kimaki send --channel <channelId> --prompt '...' --user '<@535922349652836367>'`,
+  ].join('\n')
+}
+
+async function resolveDiscordUserOption({
+  user,
+  guildId,
+  rest,
+}: {
+  user: string | undefined
+  guildId: string
+  rest: REST
+}): Promise<Error | DiscordUserTarget | undefined> {
+  if (!user) {
+    return undefined
+  }
+
+  const directUserId = getDiscordUserIdFromUserOption(user)
+  if (directUserId) {
+    cliLogger.log(`Using Discord user ID: ${directUserId}`)
+    return { id: directUserId, username: directUserId }
+  }
+
+  cliLogger.log(`Searching for user "${user}" in guild...`)
+  const searchResult = await rest
+    .get(Routes.guildMembersSearch(guildId), {
+      query: new URLSearchParams({ query: user, limit: '10' }),
+    })
+    .catch((error) => new Error('Discord member search failed', { cause: error }))
+
+  if (searchResult instanceof Error) {
+    if (isDiscordMemberLookupUnavailable(searchResult)) {
+      return new Error(formatMemberLookupUnavailableMessage())
+    }
+    return searchResult
+  }
+
+  const searchResults = Array.isArray(searchResult)
+    ? searchResult.filter(isGuildMemberSearchResult)
+    : []
+  const exactMatch = searchResults.find((member) => {
+    const displayName = member.nick || member.user.global_name || member.user.username
+    return (
+      displayName.toLowerCase() === user.toLowerCase() ||
+      member.user.username.toLowerCase() === user.toLowerCase()
+    )
+  })
+  const member = exactMatch || searchResults[0]
+  if (!member) {
+    return new Error(`User "${user}" not found in guild`)
+  }
+
+  const username = member.nick || member.user.global_name || member.user.username
+  cliLogger.log(`Found user: ${username} (${member.user.id})`)
+  return { id: member.user.id, username }
+}
+
 function canUseInteractivePrompts(): boolean {
   return Boolean(process.stdin.isTTY && process.stdout.isTTY)
 }
@@ -1190,15 +1334,14 @@ async function resolveCredentials({
   note(
     '1. Go to the "Bot" section in the left sidebar\n' +
       '2. Scroll down to "Privileged Gateway Intents"\n' +
-      '3. Enable these intents by toggling them ON:\n' +
-      '   • SERVER MEMBERS INTENT\n' +
-      '   • MESSAGE CONTENT INTENT\n' +
-      '4. Click "Save Changes" at the bottom',
-    'Step 2: Enable Required Intents',
+      '3. Enable MESSAGE CONTENT INTENT by toggling it ON\n' +
+      '4. Optional: enable SERVER MEMBERS INTENT only if you want name lookup in `kimaki user list` and `kimaki send --user Tommy`\n' +
+      '5. Click "Save Changes" at the bottom',
+    'Step 2: Enable Message Content Intent',
   )
 
   const intentsConfirmed = await text({
-    message: 'Press Enter after enabling both intents:',
+    message: 'Press Enter after enabling Message Content Intent:',
     placeholder: 'Enter',
   })
   if (isCancel(intentsConfirmed)) {
@@ -2437,7 +2580,7 @@ cli
     '--cwd <path>',
     'Start session in an existing git worktree directory instead of the main project directory',
   )
-  .option('-u, --user <username>', 'Discord username to add to thread')
+  .option('-u, --user <user>', 'Discord user ID, mention, or username to add to thread')
   .option('--agent <agent>', 'Agent to use for the session')
   .option('--model <model>', 'Model to use (format: provider/model)')
   .option(
@@ -2885,42 +3028,15 @@ cli
           resolvedCwd = cwdResult
         }
 
-        // Resolve username to user ID if provided
-        const resolvedUser = await (async (): Promise<
-          { id: string; username: string } | undefined
-        > => {
-          if (!options.user) {
-            return undefined
-          }
-          cliLogger.log(`Searching for user "${options.user}" in guild...`)
-          const searchResults = (await rest.get(
-            Routes.guildMembersSearch(channelData.guild_id),
-            {
-              query: new URLSearchParams({ query: options.user, limit: '10' }),
-            },
-          )) as Array<{
-            user: { id: string; username: string; global_name?: string }
-            nick?: string
-          }>
-
-          // Find exact match by display name, nickname, or username
-          const exactMatch = searchResults.find((member) => {
-            const displayName =
-              member.nick || member.user.global_name || member.user.username
-            return (
-              displayName.toLowerCase() === options.user!.toLowerCase() ||
-              member.user.username.toLowerCase() === options.user!.toLowerCase()
-            )
-          })
-          const member = exactMatch || searchResults[0]
-          if (!member) {
-            throw new Error(`User "${options.user}" not found in guild`)
-          }
-          const username =
-            member.nick || member.user.global_name || member.user.username
-          cliLogger.log(`Found user: ${username} (${member.user.id})`)
-          return { id: member.user.id, username }
-        })()
+        const resolvedUser = await resolveDiscordUserOption({
+          user: options.user,
+          guildId: channelData.guild_id,
+          rest,
+        })
+        if (resolvedUser instanceof Error) {
+          cliLogger.error(resolvedUser.message)
+          process.exit(EXIT_NO_RESTART)
+        }
 
         cliLogger.log('Creating starter message...')
 
@@ -3812,21 +3928,29 @@ cli
       const { token: botToken } = await resolveBotCredentials()
       const rest = createDiscordRest(botToken)
 
-      type GuildMember = {
-        user: { id: string; username: string; global_name?: string }
-        nick?: string
+      const membersResult = await (async () => {
+        if (query) {
+          return await rest.get(Routes.guildMembersSearch(guildId), {
+            query: new URLSearchParams({ query, limit: '20' }),
+          })
+        }
+        return await rest.get(Routes.guildMembers(guildId), {
+          query: new URLSearchParams({ limit: '20' }),
+        })
+      })().catch((error) => new Error('Discord member list failed', { cause: error }))
+
+      if (membersResult instanceof Error) {
+        if (isDiscordMemberLookupUnavailable(membersResult)) {
+          cliLogger.error(formatMemberLookupUnavailableMessage())
+          process.exit(EXIT_NO_RESTART)
+        }
+        cliLogger.error(membersResult.message)
+        process.exit(EXIT_NO_RESTART)
       }
 
-      const members: GuildMember[] = await (async () => {
-        if (query) {
-          return (await rest.get(Routes.guildMembersSearch(guildId), {
-            query: new URLSearchParams({ query, limit: '20' }),
-          })) as GuildMember[]
-        }
-        return (await rest.get(Routes.guildMembers(guildId), {
-          query: new URLSearchParams({ limit: '20' }),
-        })) as GuildMember[]
-      })()
+      const members = Array.isArray(membersResult)
+        ? membersResult.filter(isGuildMemberSearchResult)
+        : []
 
       if (members.length === 0) {
         const msg = query

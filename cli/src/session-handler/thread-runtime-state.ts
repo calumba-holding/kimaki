@@ -76,6 +76,7 @@ export type ThreadRunState = {
   // system prompt examples like `kimaki send --user ...` so notifications keep
   // working without changing the cached system prompt on every follow-up.
   sessionUsername: string | undefined
+  sessionUserId: string | undefined
 
   // FIFO queue of pending inputs waiting for kimaki-local dispatch.
   // Normal user messages default to opencode queue mode; this queue is
@@ -108,6 +109,7 @@ export function initialThreadState(): ThreadRunState {
   return {
     sessionId: undefined,
     sessionUsername: undefined,
+    sessionUserId: undefined,
     queueItems: [],
     listenerController: undefined,
     sentPartIds: new Set(),
@@ -170,6 +172,15 @@ export function setSessionUsername(threadId: string, username: string): void {
       return t
     }
     return { ...t, sessionUsername: username }
+  })
+}
+
+export function setSessionUserId(threadId: string, userId: string): void {
+  updateThread(threadId, (t) => {
+    if (t.sessionUserId) {
+      return t
+    }
+    return { ...t, sessionUserId: userId }
   })
 }
 

@@ -3236,6 +3236,7 @@ export class ThreadSessionRuntime {
           channelTopic,
           agents: availableAgents,
           username: this.state?.sessionUsername || input.username,
+          userId: this.state?.sessionUserId || input.userId,
         }),
         ...(resolvedAgent ? { agent: resolvedAgent } : {}),
         ...(modelField ? { model: modelField } : {}),
@@ -3360,6 +3361,7 @@ export class ThreadSessionRuntime {
    */
   async enqueueIncoming(input: IngressInput): Promise<EnqueueResult> {
     threadState.setSessionUsername(this.threadId, input.username)
+    threadState.setSessionUserId(this.threadId, input.userId)
 
     // When a preprocessor is provided, we must resolve it inside
     // dispatchAction before we know the final mode for routing.
@@ -4061,6 +4063,7 @@ export class ThreadSessionRuntime {
           channelTopic,
           agents: earlyAvailableAgents,
           username: this.state?.sessionUsername || input.username,
+          userId: this.state?.sessionUserId || input.userId,
         }),
         model: earlyModelParam,
         agent: earlyAgentPreference,
