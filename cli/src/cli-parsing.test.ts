@@ -12,8 +12,10 @@ async function parseWithGoke(argv: string[]) {
     "cli.command('session export-events-jsonl', 'Export in-memory events to JSONL').option('--session <sessionId>', 'Session ID').option('--out <file>', 'Output path')",
     "cli.command('add-project', 'Add a project').option('-g, --guild <guildId>', 'Discord guild/server ID')",
     "cli.command('task delete <id>', 'Delete task')",
-    "cli.command('anthropic-accounts list', 'List stored Anthropic accounts')",
-    "cli.command('anthropic-accounts remove <indexOrEmail>', 'Remove stored Anthropic account')",
+    "cli.command('multioauth anthropic list', 'List stored Anthropic accounts')",
+    "cli.command('multioauth anthropic remove <indexOrEmail>', 'Remove stored Anthropic account')",
+    "cli.command('multioauth openai list', 'List stored OpenAI accounts')",
+    "cli.command('multioauth openai remove <indexOrEmail>', 'Remove stored OpenAI account')",
     `const result = cli.parse(${JSON.stringify(argv)}, { run: false })`,
     'process.stdout.write(JSON.stringify({ args: result.args, options: result.options }))',
   ].join(';')
@@ -34,7 +36,9 @@ async function getHelpOutput() {
     'const stdout = { text: \'\', write(data) { this.text += String(data) } }',
     "const cli = goke('kimaki', { stdout })",
     "cli.command('send', 'Send a message')",
-    "cli.command('anthropic-accounts list', 'List stored Anthropic accounts')",
+    "cli.command('multioauth list', 'List all OAuth accounts')",
+    "cli.command('multioauth anthropic list', 'List stored Anthropic accounts')",
+    "cli.command('multioauth openai list', 'List stored OpenAI accounts')",
     'cli.help()',
     "cli.parse(['node', 'kimaki', '--help'], { run: false })",
     'process.stdout.write(stdout.text)',
@@ -149,13 +153,13 @@ describe('goke CLI ID parsing', () => {
     expect(typeof result.args[0]).toBe('string')
   })
 
-  test('anthropic account remove parses index and email as strings', async () => {
+  test('multioauth account remove parses index and email as strings', async () => {
     const indexResult = await parseWithGoke(
-      ['node', 'kimaki', 'anthropic-accounts', 'remove', '2'],
+      ['node', 'kimaki', 'multioauth', 'anthropic', 'remove', '2'],
     )
 
     const emailResult = await parseWithGoke(
-      ['node', 'kimaki', 'anthropic-accounts', 'remove', 'user@example.com'],
+      ['node', 'kimaki', 'multioauth', 'openai', 'remove', 'user@example.com'],
     )
 
     expect(indexResult.args[0]).toBe('2')
@@ -164,10 +168,10 @@ describe('goke CLI ID parsing', () => {
     expect(typeof emailResult.args[0]).toBe('string')
   })
 
-  test('anthropic account commands are included in help output', async () => {
+  test('multioauth commands are included in help output', async () => {
     const stdout = await getHelpOutput()
 
     expect(stdout).toContain('send')
-    expect(stdout).toContain('anthropic-accounts')
+    expect(stdout).toContain('multioauth')
   })
 })
