@@ -875,7 +875,7 @@ export async function getChannelVerbosity(
     where: { channel_id: channelId },
   })
   if (row?.verbosity) {
-    return row.verbosity as VerbosityLevel
+    return row.verbosity
   }
   return store.getState().defaultVerbosity
 }

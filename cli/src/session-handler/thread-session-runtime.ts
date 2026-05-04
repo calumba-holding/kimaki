@@ -3252,13 +3252,13 @@ export class ThreadSessionRuntime {
           }
           const err = promptResult.error
           if (err && typeof err === 'object') {
+            const data = err.data
             if (
-              'data' in err &&
-              err.data &&
-              typeof err.data === 'object' &&
-              'message' in err.data
+              data &&
+              typeof data === 'object' &&
+              'message' in data
             ) {
-              return String(err.data.message)
+              return String(data.message)
             }
             if (
               'errors' in err &&

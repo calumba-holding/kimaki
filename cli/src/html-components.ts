@@ -68,7 +68,7 @@ function parseRenderableNodes({
 
   for (const node of nodes) {
     if (node.type === ElementType.Text) {
-      const textNode = node as Text
+      const textNode = node
       renderables.push({
         type: 'text',
         text: textNode.data,
@@ -77,7 +77,7 @@ function parseRenderableNodes({
     }
 
     if (node.type === ElementType.Tag) {
-      const element = node as Element
+      const element = node
       if (element.name !== 'button') {
         return new Error(`Unsupported HTML tag: <${element.name}>`)
       }
@@ -168,12 +168,12 @@ function extractNodeText({
 
   for (const node of nodes) {
     if (node.type === ElementType.Text) {
-      parts.push((node as Text).data)
+      parts.push((node).data)
       continue
     }
 
     if (node.type === ElementType.Tag) {
-      parts.push(extractNodeText({ nodes: (node as Element).children }))
+      parts.push(extractNodeText({ nodes: (node).children }))
     }
   }
 

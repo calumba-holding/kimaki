@@ -130,7 +130,7 @@ function processListItem(item: Tokens.ListItem, prefix: string): Segment[] {
 
 function extractText(token: Token): string {
   // Prefer raw to preserve newlines and markdown markers.
-  if ('raw' in token && typeof token.raw === 'string') {
+  if (typeof token.raw === 'string') {
     return token.raw
   }
 

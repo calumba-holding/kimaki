@@ -149,7 +149,7 @@ function jsonSchemaToGenAISchema(jsonSchema: JSONSchema7Definition): Schema {
  */
 export function aiToolToGenAIFunction(tool: AnyTool): FunctionDeclaration {
   // Extract the input schema - assume it's a Zod schema
-  const inputSchema = tool.inputSchema as z.ZodType<unknown>
+  const inputSchema = tool.inputSchema
 
   // Get the tool name from the schema or generate one
   let toolName = 'tool'
@@ -261,7 +261,7 @@ export function aiToolToCallableTool(
 }
 
 export function extractSchemaFromTool(tool: AnyTool): JSONSchema7 {
-  const inputSchema = tool.inputSchema as z.ZodType<unknown>
+  const inputSchema = tool.inputSchema
 
   if (!inputSchema) {
     return {}

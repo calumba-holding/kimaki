@@ -158,10 +158,7 @@ export async function startGenAiSession({
               const functionResponses = parts
                 .filter((part) => part.functionResponse)
                 .map((part) => ({
-                  response: part.functionResponse!.response as Record<
-                    string,
-                    unknown
-                  >,
+                  response: part.functionResponse!.response,
                   id: part.functionResponse!.id,
                   name: part.functionResponse!.name,
                 }))
@@ -267,7 +264,7 @@ export async function startGenAiSession({
       onopen: function () {
         genaiLogger.debug('Opened')
       },
-      onmessage: function (message: LiveServerMessage) {
+      onmessage: function (message) {
         // genaiLogger.log(message)
         try {
           handleModelTurn(message)

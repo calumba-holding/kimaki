@@ -192,12 +192,13 @@ export async function startHranaServer({
   const started = await new Promise<ServerStartError | true>((resolve) => {
     const srv = http.createServer(handler)
 
-    srv.on('error', (err: NodeJS.ErrnoException) => {
+    srv.on('error', (err) => {
+      const code = 'code' in err ? err.code : undefined
       resolve(
         new ServerStartError({
           port,
           reason:
-            err.code === 'EADDRINUSE'
+            code === 'EADDRINUSE'
               ? `Port ${port} still in use after eviction`
               : err.message,
         }),

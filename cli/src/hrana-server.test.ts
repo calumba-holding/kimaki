@@ -423,7 +423,7 @@ describe('hrana-server', () => {
       .catch((e: Error) => e)
 
     expect(txError).toBeInstanceOf(Error)
-    expect((txError as Error).message).toContain('intentional rollback')
+    expect((txError).message).toContain('intentional rollback')
 
     // Row should NOT exist — transaction was rolled back
     const ghost = await prisma.thread_sessions.findUnique({

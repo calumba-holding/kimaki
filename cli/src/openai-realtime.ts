@@ -336,12 +336,12 @@ export async function startGenAiSession({
 
   const sessionResult: GenAISessionResult = {
     session: {
-      send: (audioData: ArrayBuffer) => {
+      send: (audioData) => {
         // Convert ArrayBuffer to Int16Array for OpenAI
         const int16Data = new Int16Array(audioData)
         client.appendInputAudio(int16Data)
       },
-      sendText: (text: string) => {
+      sendText: (text) => {
         // Send text message to OpenAI
         client.sendUserMessageContent([{ type: 'input_text', text }])
       },

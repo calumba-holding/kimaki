@@ -133,10 +133,10 @@ export async function handleCompactCommand({
 
     if (result.error) {
       logger.error('[COMPACT] Error:', result.error)
+      const errorData = result.error.data
       const errorMessage =
-        'data' in result.error && result.error.data
-          ? (result.error.data as { message?: string }).message ||
-            'Unknown error'
+        errorData && typeof errorData === 'object' && 'message' in errorData
+          ? String(errorData.message || 'Unknown error')
           : 'Unknown error'
       await command.editReply({
         content: `Failed to compact: ${errorMessage}`,

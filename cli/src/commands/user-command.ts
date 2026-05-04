@@ -1,7 +1,7 @@
 // User-defined OpenCode command handler.
 // Handles slash commands that map to user-configured commands in opencode.json.
 
-import type { CommandContext, CommandHandler } from './types.js'
+import type { CommandHandler } from './types.js'
 import {
   ChannelType,
   MessageFlags,
@@ -22,7 +22,7 @@ const DISCORD_THREAD_NAME_LIMIT = 100
 export const handleUserCommand: CommandHandler = async ({
   command,
   appId,
-}: CommandContext) => {
+}) => {
   const discordCommandName = command.commandName
   // Look up the original OpenCode command name from the mapping populated at registration.
   // The sanitized Discord name is lossy (e.g. foo:bar → foo-bar), so resolving from

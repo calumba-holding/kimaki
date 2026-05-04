@@ -313,11 +313,11 @@ export function getLatestRunInfo({
       continue
     }
     return {
-      model: 'modelID' in msg ? (msg.modelID as string) : undefined,
-      providerID: 'providerID' in msg ? (msg.providerID as string) : undefined,
-      agent: 'mode' in msg ? (msg.mode as string) : undefined,
-      tokensUsed: 'tokens' in msg && msg.tokens
-        ? getTokenTotal(msg.tokens as { input: number; output: number; reasoning: number; cache: { read: number; write: number } })
+      model: msg.modelID,
+      providerID: msg.providerID,
+      agent: msg.mode,
+      tokensUsed: msg.tokens
+        ? getTokenTotal(msg.tokens)
         : 0,
     }
   }

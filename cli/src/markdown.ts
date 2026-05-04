@@ -339,11 +339,10 @@ export function getCompactSessionContext({
           const toolParts = (msg.parts || []).filter(
             (p) =>
               p.type === 'tool' &&
-              'state' in p &&
               p.state?.status === 'completed',
           )
           for (const part of toolParts) {
-            if (part.type === 'tool' && 'tool' in part && 'state' in part) {
+            if (part.type === 'tool') {
               const toolName = part.tool
               // skip noisy tools
               if (toolName === 'todoread' || toolName === 'todowrite') {

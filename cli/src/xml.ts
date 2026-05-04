@@ -33,7 +33,7 @@ export function extractTagsArrays<T extends string>({
           const findTags = (nodes: ChildNode[], path: string[] = []) => {
             nodes.forEach((node) => {
               if (node.type === ElementType.Tag) {
-                const element = node as Element
+                const element = node
                 const currentPath = [...path, element.name]
                 const pathString = currentPath.join('.')
 
@@ -83,7 +83,7 @@ export function extractTagsArrays<T extends string>({
                 node.type === ElementType.Text &&
                 node.parent?.type === ElementType.Root
               ) {
-                const textNode = node as Text
+                const textNode = node
                 if (textNode.data.trim()) {
                   // console.log('node.parent',node.parent)
                   result.others?.push(textNode.data.trim())

@@ -136,7 +136,7 @@ export async function handleContextUsageCommand({
     // Sum cost across all assistant messages for accurate session total
     // (AssistantMessage.cost is per-message, not cumulative)
     const totalCost = assistantMessages.reduce((sum, m) => {
-      if (m.info.role === 'assistant' && 'cost' in m.info) {
+      if (m.info.role === 'assistant') {
         return sum + (m.info.cost || 0)
       }
       return sum

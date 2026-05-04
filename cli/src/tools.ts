@@ -58,7 +58,7 @@ export async function getTools({
     for (let i = data.length - 1; i >= 0; i--) {
       const info = data?.[i]?.info
       if (info?.role === 'assistant') {
-        const ai = info as AssistantMessage
+        const ai = info
         if (!ai.summary && ai.providerID && ai.modelID) {
           return { providerID: ai.providerID, modelID: ai.modelID }
         }
