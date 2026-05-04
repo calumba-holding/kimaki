@@ -97,8 +97,8 @@ importers:
         specifier: workspace:^
         version: link:../errore
       goke:
-        specifier: ^6.8.0
-        version: 6.8.0
+        specifier: ^6.9.0
+        version: 6.9.0
       htmlparser2:
         specifier: ^12.0.0
         version: 12.0.0
@@ -4190,6 +4190,10 @@ packages:
     resolution: {integrity: sha512-tRvG7y9JnBgBQJe9H5zbyijVkkTNhz5EgsD0cCG88NKhJGneP8AkFUN8iuaIe2LOjqhQANvoB+ClVzfj/FYprg==}
     engines: {node: '>=18'}
 
+  goke@6.9.0:
+    resolution: {integrity: sha512-Oo0+cHdeUr/nlfsJOQoe9emeHZUaxGenapCLS0zUqcm/unpm1cmNSfayENT02E0nbHCEpF9b2Jc9DGT7xhicEA==}
+    engines: {node: '>=18'}
+
   google-auth-library@10.6.2:
     resolution: {integrity: sha512-e27Z6EThmVNNvtYASwQxose/G57rkRuaRbQyxM2bvYLLX/GqWZ5chWq2EBoUchJbCc57eC9ArzO5wMsEmWftCw==}
     engines: {node: '>=18'}
@@ -5665,6 +5669,7 @@ packages:
 
   uuid@8.3.2:
     resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   valibot@1.2.0:
@@ -9408,6 +9413,8 @@ snapshots:
 
   goke@6.8.0: {}
 
+  goke@6.9.0: {}
+
   google-auth-library@10.6.2:
     dependencies:
       base64-js: 1.5.1
@@ -9699,7 +9706,7 @@ snapshots:
   lintcn@0.7.1:
     dependencies:
       find-up: 8.0.0
-      goke: 6.8.0
+      goke: 6.9.0
       tar: 7.5.13
 
   locate-path@7.2.0:
