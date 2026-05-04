@@ -236,8 +236,7 @@ export async function handleLoginCommand({
     projectDirectory = metadata.projectDirectory
     targetChannelId = textChannel?.id || channel.id
   } else if (channel.type === ChannelType.GuildText) {
-    const textChannel = channel as TextChannel
-    const metadata = await getKimakiMetadata(textChannel)
+    const metadata = await getKimakiMetadata(channel)
     projectDirectory = metadata.projectDirectory
     targetChannelId = channel.id
   } else {

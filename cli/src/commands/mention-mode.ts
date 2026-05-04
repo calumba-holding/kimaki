@@ -37,8 +37,7 @@ export async function handleToggleMentionModeCommand({
     return
   }
 
-  const textChannel = channel as TextChannel
-  const metadata = await getKimakiMetadata(textChannel)
+  const metadata = await getKimakiMetadata(channel)
 
   if (!metadata.projectDirectory) {
     await command.reply({
@@ -49,20 +48,20 @@ export async function handleToggleMentionModeCommand({
     return
   }
 
-  const wasEnabled = await getChannelMentionMode(textChannel.id)
+  const wasEnabled = await getChannelMentionMode(channel.id)
   const nextEnabled = !wasEnabled
-  await setChannelMentionMode(textChannel.id, nextEnabled)
+  await setChannelMentionMode(channel.id, nextEnabled)
 
   const nextLabel = nextEnabled ? 'enabled' : 'disabled'
 
   mentionModeLogger.log(
-    `[TOGGLE_MENTION_MODE] ${nextLabel.toUpperCase()} for channel ${textChannel.id}`,
+    `[TOGGLE_MENTION_MODE] ${nextLabel.toUpperCase()} for channel ${channel.id}`,
   )
 
   await command.reply({
     content: nextEnabled
       ? `Mention mode **enabled** for this channel.\nThe bot will only start new sessions when @mentioned.\nMessages in existing threads are not affected.`
-      : `Mention mode **disabled** for this channel.\nThe bot will respond to all messages in **#${textChannel.name}**.`,
+      : `Mention mode **disabled** for this channel.\nThe bot will respond to all messages in **#${channel.name}**.`,
     flags: MessageFlags.Ephemeral,
   })
 }

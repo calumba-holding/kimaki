@@ -498,8 +498,7 @@ export async function startDiscordBot({
       // without getting a permission error - we just silently ignore.
       const channel = message.channel
       if (channel.type === ChannelType.GuildText && !isCliInjectedPrompt) {
-        const textChannel = channel as TextChannel
-        const mentionModeEnabled = await getChannelMentionMode(textChannel.id)
+        const mentionModeEnabled = await getChannelMentionMode(channel.id)
         if (mentionModeEnabled) {
           const botMentioned =
             discordClient.user && message.mentions.has(discordClient.user.id)
@@ -781,12 +780,11 @@ export async function startDiscordBot({
           return
         }
 
-        const textChannel = channel as TextChannel
         voiceLogger.log(
-          `[GUILD_TEXT] Message in text channel #${textChannel.name} (${textChannel.id})`,
+          `[GUILD_TEXT] Message in text channel #${channel.name} (${channel.id})`,
         )
 
-        const channelConfig = await getChannelDirectory(textChannel.id)
+        const channelConfig = await getChannelDirectory(channel.id)
 
         if (!channelConfig) {
           const botMentioned = Boolean(
@@ -804,7 +802,7 @@ export async function startDiscordBot({
             return
           }
           voiceLogger.log(
-            `[IGNORED] Channel #${textChannel.name} has no project directory configured`,
+            `[IGNORED] Channel #${channel.name} has no project directory configured`,
           )
           return
         }
@@ -861,7 +859,7 @@ export async function startDiscordBot({
 
         // Check if worktrees should be enabled (CLI flag OR channel setting)
         const shouldUseWorktrees =
-          useWorktrees || (await getChannelWorktreesEnabled(textChannel.id))
+          useWorktrees || (await getChannelWorktreesEnabled(channel.id))
 
         // Add worktree prefix if worktrees are enabled
         const threadName = shouldUseWorktrees
@@ -913,7 +911,7 @@ export async function startDiscordBot({
           thread,
           projectDirectory,
           sdkDirectory: projectDirectory,
-          channelId: textChannel.id,
+          channelId: channel.id,
           appId: currentAppId,
         })
         await channelRuntime.enqueueIncoming({

@@ -39,8 +39,7 @@ export async function handleToggleWorktreesCommand({
     return
   }
 
-  const textChannel = channel as TextChannel
-  const metadata = await getKimakiMetadata(textChannel)
+  const metadata = await getKimakiMetadata(channel)
 
   if (!metadata.projectDirectory) {
     await command.reply({
@@ -51,20 +50,20 @@ export async function handleToggleWorktreesCommand({
     return
   }
 
-  const wasEnabled = await getChannelWorktreesEnabled(textChannel.id)
+  const wasEnabled = await getChannelWorktreesEnabled(channel.id)
   const nextEnabled = !wasEnabled
-  await setChannelWorktreesEnabled(textChannel.id, nextEnabled)
+  await setChannelWorktreesEnabled(channel.id, nextEnabled)
 
   const nextLabel = nextEnabled ? 'enabled' : 'disabled'
 
   worktreeSettingsLogger.log(
-    `[TOGGLE_WORKTREES] ${nextLabel.toUpperCase()} for channel ${textChannel.id}`,
+    `[TOGGLE_WORKTREES] ${nextLabel.toUpperCase()} for channel ${channel.id}`,
   )
 
   await command.reply({
     content: nextEnabled
-      ? `Worktrees **enabled** for this channel.\n\nNew sessions started from messages in **#${textChannel.name}** will now automatically create git worktrees.\n\nNew setting for **#${textChannel.name}**: **enabled**.`
-      : `Worktrees **disabled** for this channel.\n\nNew sessions started from messages in **#${textChannel.name}** will use the main project directory.\n\nNew setting for **#${textChannel.name}**: **disabled**.`,
+      ? `Worktrees **enabled** for this channel.\n\nNew sessions started from messages in **#${channel.name}** will now automatically create git worktrees.\n\nNew setting for **#${channel.name}**: **enabled**.`
+      : `Worktrees **disabled** for this channel.\n\nNew sessions started from messages in **#${channel.name}** will use the main project directory.\n\nNew setting for **#${channel.name}**: **disabled**.`,
     flags: MessageFlags.Ephemeral,
   })
 }

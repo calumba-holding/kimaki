@@ -604,7 +604,7 @@ export async function resolveTextChannel(
   }
 
   if (channel.type === ChannelType.GuildText) {
-    return channel as TextChannel
+    return channel
   }
 
   if (
@@ -616,7 +616,7 @@ export async function resolveTextChannel(
     if (parentId) {
       const parent = await channel.guild.channels.fetch(parentId)
       if (parent?.type === ChannelType.GuildText) {
-        return parent as TextChannel
+        return parent
       }
     }
   }

@@ -328,7 +328,7 @@ async function ensureExternalSessionThread({
   }
 
   const threadName = 'Sync: ' + getSessionThreadName({ sessionTitle, messages })
-  const thread = await (parentChannel as TextChannel).threads.create({
+  const thread = await (parentChannel).threads.create({
     name: threadName.slice(0, 100),
     autoArchiveDuration: ThreadAutoArchiveDuration.OneDay,
     reason: `Sync external OpenCode session ${sessionId}`,

@@ -153,20 +153,19 @@ export async function getChannelsWithDescriptions(
 ): Promise<ChannelWithTags[]> {
   const channels: ChannelWithTags[] = []
 
-  const textChannels = guild.channels.cache.filter((channel) =>
-    channel.isTextBased(),
+  const textChannels = guild.channels.cache.filter(
+    (channel): channel is TextChannel => channel.type === ChannelType.GuildText,
   )
 
   for (const channel of textChannels.values()) {
-    const textChannel = channel as TextChannel
-    const description = textChannel.topic || null
+    const description = channel.topic || null
 
     // Get channel config from database instead of parsing XML from topic
-    const channelConfig = await getChannelDirectory(textChannel.id)
+    const channelConfig = await getChannelDirectory(channel.id)
 
     channels.push({
-      id: textChannel.id,
-      name: textChannel.name,
+      id: channel.id,
+      name: channel.name,
       description,
       kimakiDirectory: channelConfig?.directory,
     })

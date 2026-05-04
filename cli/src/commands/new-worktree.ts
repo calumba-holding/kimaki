@@ -433,10 +433,8 @@ export async function handleNewWorktreeCommand({
     return
   }
 
-  const textChannel = channel
-
   const projectDirectory = await getProjectDirectoryFromChannel(
-    textChannel,
+    channel,
   )
   if (errore.isError(projectDirectory)) {
     await command.editReply(projectDirectory.message)
@@ -470,7 +468,7 @@ export async function handleNewWorktreeCommand({
   // Create thread immediately so user can start typing
   const result = await errore.tryAsync({
     try: async () => {
-      const starterMessage = await textChannel.send({
+      const starterMessage = await channel.send({
         content: worktreeCreatingMessage(worktreeName),
         flags: SILENT_MESSAGE_FLAGS,
       })

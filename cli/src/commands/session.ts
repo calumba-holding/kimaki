@@ -29,9 +29,7 @@ export async function handleSessionCommand({
     return
   }
 
-  const textChannel = channel as TextChannel
-
-  const channelConfig = await getChannelDirectory(textChannel.id)
+  const channelConfig = await getChannelDirectory(channel.id)
   const projectDirectory = channelConfig?.directory
 
   if (!projectDirectory) {
@@ -63,7 +61,7 @@ export async function handleSessionCommand({
       fullPrompt = `${prompt}\n\n@${files.join(' @')}`
     }
 
-    const starterMessage = await textChannel.send({
+    const starterMessage = await channel.send({
       content: `🚀 **Starting OpenCode session**\n📝 ${prompt}${files.length > 0 ? `\n📎 Files: ${files.join(', ')}` : ''}`,
       flags: SILENT_MESSAGE_FLAGS,
     })
@@ -84,7 +82,7 @@ export async function handleSessionCommand({
       thread,
       projectDirectory,
       sdkDirectory: projectDirectory,
-      channelId: textChannel.id,
+      channelId: channel.id,
       appId,
     })
     await runtime.enqueueIncoming({

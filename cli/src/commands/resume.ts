@@ -54,9 +54,7 @@ export async function handleResumeCommand({
     return
   }
 
-  const textChannel = channel as TextChannel
-
-  const channelConfig = await getChannelDirectory(textChannel.id)
+  const channelConfig = await getChannelDirectory(channel.id)
   const projectDirectory = channelConfig?.directory
 
   if (!projectDirectory) {
@@ -89,7 +87,7 @@ export async function handleResumeCommand({
 
     const sessionTitle = sessionResponse.data.title
 
-    const thread = await textChannel.threads.create({
+    const thread = await channel.threads.create({
       name: `Resume: ${sessionTitle}`.slice(0, 100),
       autoArchiveDuration: ThreadAutoArchiveDuration.OneDay,
       reason: `Resuming session ${sessionId}`,
