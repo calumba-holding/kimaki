@@ -15,7 +15,7 @@
  */
 
 import type { Plugin } from '@opencode-ai/plugin'
-import { appendToastSessionMarker } from './plugin-logger.js'
+import { createPluginLogger, appendToastSessionMarker } from './plugin-logger.js'
 import { isRateLimitRetryMessage, isTokenRefreshError, isOAuthStored, readJson, authFilePath } from './oauth-rotation-shared.js'
 import {
   detectAndRememberNewOpenAIAccount,
@@ -23,6 +23,7 @@ import {
   rotateOpenAIAccount,
 } from './openai-auth-state.js'
 
+const log = createPluginLogger('openai-rotation')
 const TOAST_SESSION_HEADER = 'x-kimaki-session-id'
 
 // --- Event shape guards ---
@@ -86,6 +87,7 @@ let lastLoginCheckMs = 0
 const LOGIN_CHECK_INTERVAL_MS = 30_000
 
 const openaiRotationPlugin: Plugin = async ({ client }) => {
+  log.info('OpenAI rotation plugin loaded')
   return {
     'chat.headers': async (input, output) => {
       if (input.model.providerID !== 'openai') return
@@ -93,6 +95,12 @@ const openaiRotationPlugin: Plugin = async ({ client }) => {
     },
 
     event: async ({ event }) => {
+      const eventType = isRecord(event) ? (event as Record<string, unknown>).type : 'unknown'
+      if (eventType === 'session.status') {
+        const props = isRecord(event) ? (event as Record<string, unknown>).properties : undefined
+        const statusType = isRecord(props) ? (props as Record<string, unknown>).status : undefined
+        log.info('session.status event', isRecord(statusType) ? (statusType as Record<string, unknown>).type : 'unknown-status')
+      }
       // 1. Detect new logins on idle events (session just became ready)
       if (isSessionIdleEvent(event)) {
         const now = Date.now()
@@ -125,6 +133,7 @@ const openaiRotationPlugin: Plugin = async ({ client }) => {
       if (isRetryStatusEvent(event)) {
         const sessionID = event.properties.sessionID
         const message = event.properties.status.message
+        log.info('retry event', message.slice(0, 100))
         const isRateLimit = isRateLimitRetryMessage(message)
         const isAuthError = isTokenRefreshError(message)
 

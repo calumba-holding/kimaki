@@ -30,6 +30,42 @@ import {
 export { type OAuthStored, type AccountStore, type RotationResult, type AccountIdentity }
 export { accountLabel, upsertAccount }
 
+// --- JWT identity extraction ---
+
+/**
+ * Extract email and accountId from an OpenAI OAuth access token JWT.
+ * The JWT payload contains:
+ *   "https://api.openai.com/profile": { "email": "..." }
+ *   "https://api.openai.com/auth": { "chatgpt_account_id": "..." }
+ * Falls back to top-level auth entry fields if JWT decoding fails.
+ */
+export function extractOpenAIIdentity(auth: OAuthStored & Record<string, unknown>): AccountIdentity {
+  // Try JWT first
+  try {
+    const parts = auth.access.split('.')
+    if (parts.length >= 2 && parts[1]) {
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString()) as Record<string, unknown>
+      const profile = payload['https://api.openai.com/profile'] as Record<string, unknown> | undefined
+      const authClaims = payload['https://api.openai.com/auth'] as Record<string, unknown> | undefined
+      const email = typeof profile?.email === 'string' ? profile.email : undefined
+      const accountId = typeof authClaims?.chatgpt_account_id === 'string'
+        ? authClaims.chatgpt_account_id
+        : undefined
+      if (email || accountId) {
+        return { email, accountId }
+      }
+    }
+  } catch {
+    // JWT decode failed, fall through
+  }
+
+  // Fallback: check if auth entry has fields directly
+  return {
+    email: typeof auth.email === 'string' ? auth.email : undefined,
+    accountId: typeof auth.accountId === 'string' ? auth.accountId : undefined,
+  }
+}
+
 // --- Store file path ---
 
 export function openaiAccountsFilePath() {
@@ -39,32 +75,10 @@ export function openaiAccountsFilePath() {
   return path.join(homedir(), '.local', 'share', 'opencode', 'openai-oauth-accounts.json')
 }
 
-// Legacy multicodex store path for migration
-function legacyMulticodexStorePath() {
-  const configDir = process.env.XDG_CONFIG_HOME || path.join(homedir(), '.config')
-  return path.join(configDir, 'opencode', 'multicodex-accounts.json')
-}
-
 // --- Store I/O ---
 
-let migrationAttempted = false
-
 export async function loadOpenAIAccountStore(): Promise<AccountStore> {
-  const storePath = openaiAccountsFilePath()
-  let raw = await readJson<Partial<AccountStore> | null>(storePath, null)
-
-  // One-time migration from multicodex-accounts.json
-  if (!raw && !migrationAttempted) {
-    migrationAttempted = true
-    const legacyPath = legacyMulticodexStorePath()
-    const legacy = await readJson<Partial<AccountStore> | null>(legacyPath, null)
-    if (legacy && Array.isArray(legacy.accounts) && legacy.accounts.length > 0) {
-      raw = legacy
-      // Persist to new location so migration only happens once
-      await writeJson(storePath, normalizeAccountStore(raw))
-    }
-  }
-
+  const raw = await readJson<Partial<AccountStore> | null>(openaiAccountsFilePath(), null)
   return normalizeAccountStore(raw)
 }
 
@@ -145,24 +159,32 @@ export async function detectAndRememberNewOpenAIAccount(): Promise<AccountIdenti
   const auth = authJson.openai
   if (!isOAuthStored(auth)) return undefined
 
-  const store = await loadOpenAIAccountStore()
+  // Extract identity from JWT access token claims
+  const identity = extractOpenAIIdentity(auth)
 
-  // Check if this refresh token is already known
-  const known = store.accounts.some(
+  const store = await loadOpenAIAccountStore()
+  const existingIndex = store.accounts.findIndex(
     (account) => account.refresh === auth.refresh || account.access === auth.access,
   )
-  if (known) return undefined
 
-  // New account detected. Try to extract identity from the auth object
-  // (opencode's codex plugin may store accountId on the auth entry)
-  const authWithIdentity = auth as OAuthStored & { accountId?: string; email?: string }
-  const identity: AccountIdentity = {
-    email: typeof authWithIdentity.email === 'string' ? authWithIdentity.email : undefined,
-    accountId: typeof authWithIdentity.accountId === 'string' ? authWithIdentity.accountId : undefined,
+  // Known account: backfill missing email/accountId from JWT if needed
+  if (existingIndex >= 0) {
+    const existing = store.accounts[existingIndex]
+    if (existing && (!existing.email || !existing.accountId) && (identity.email || identity.accountId)) {
+      await withAuthStateLock(async () => {
+        const freshStore = await loadOpenAIAccountStore()
+        const account = freshStore.accounts[existingIndex]
+        if (!account) return
+        if (!account.email && identity.email) account.email = identity.email
+        if (!account.accountId && identity.accountId) account.accountId = identity.accountId
+        await saveOpenAIAccountStore(freshStore)
+      })
+    }
+    return undefined
   }
 
+  // New account: upsert with identity
   await withAuthStateLock(async () => {
-    // Re-read inside lock to avoid race
     const freshStore = await loadOpenAIAccountStore()
     const alreadyKnown = freshStore.accounts.some(
       (account) => account.refresh === auth.refresh || account.access === auth.access,
