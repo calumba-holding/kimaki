@@ -23,7 +23,7 @@
  * - https://github.com/badlogic/pi-mono/blob/main/packages/ai/src/providers/anthropic.ts
  */
 
-import type { Plugin } from "@opencode-ai/plugin";
+import type { Hooks, Plugin } from "@opencode-ai/plugin";
 import { appendToastSessionMarker } from "./plugin-logger.js";
 import {
   loadAccountStore,
@@ -142,10 +142,6 @@ type ApiKeySuccess = {
 };
 
 type AuthResult = OAuthSuccess | ApiKeySuccess | { type: "failed" };
-type PluginHooks = Awaited<ReturnType<Plugin>>;
-type SystemTransformHook = NonNullable<
-  PluginHooks["experimental.chat.system.transform"]
->;
 
 // --- HTTP helpers ---
 
@@ -1131,7 +1127,7 @@ const replacer: Plugin = async () => {
       }
 
       output.system[textIndex] = sanitizeAnthropicSystemText(text);
-    }) satisfies SystemTransformHook,
+    }) satisfies NonNullable<Hooks["experimental.chat.system.transform"]>,
   };
 };
 

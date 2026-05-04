@@ -9,7 +9,7 @@
 // API — they cannot directly touch Maps/Sets or break invariants like
 // forgetting to clear a timer.
 
-import type { Plugin } from '@opencode-ai/plugin'
+import type { Hooks, Plugin } from '@opencode-ai/plugin'
 import type {
   Part,
   TextPartInput,
@@ -18,7 +18,7 @@ import type {
   SubtaskPartInput,
 } from '@opencode-ai/sdk'
 
-type PluginHooks = Awaited<ReturnType<Plugin>>
+type PluginHooks = Hooks
 type InterruptEvent = Parameters<NonNullable<PluginHooks['event']>>[0]['event']
 type PromptPartInput = TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput
 
