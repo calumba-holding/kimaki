@@ -92,10 +92,10 @@ const CLAUDE_CODE_IDENTITY =
 
 const OPENCODE_IDENTITY =
   "You are OpenCode, the best coding agent on the planet.";
-const ANTHROPIC_PROMPT_MARKER = "Skills provide specialized instructions";
 // Subagent prompts don't contain OPENCODE_IDENTITY; opencode appends this
 // line + an <env> block instead. We strip from here to </env> inclusive.
 const SUBAGENT_MODEL_IDENTITY = "You are powered by the model named";
+const ENV_CLOSE_TAG = "</env>";
 const CLAUDE_CODE_BETA = "claude-code-20250219";
 const OAUTH_BETA = "oauth-2025-04-20";
 const FINE_GRAINED_TOOL_STREAMING_BETA =
@@ -598,18 +598,17 @@ function toClaudeCodeToolName(name: string) {
 }
 
 /**
- * Strips the OpenCode identity block (from "You are OpenCode…" up to the
- * Anthropic prompt marker "Skills provide specialized instructions") and
- * re-injects essential environment context as a small XML tag.
+ * Strips the OpenCode identity and its adjacent <env> block, then re-injects
+ * essential environment context as a small XML tag.
  *
- * The original OpenCode prompt between those markers contains the current
- * working directory and other runtime context. Stripping it wholesale loses
- * that info, so we add back what the model needs (cwd) in a compact form.
+ * OpenCode can place project instructions before or after skills depending on
+ * version. Keep the rewrite scoped to the env block so configured instruction
+ * files remain visible to Anthropic.
  *
  * Original OpenCode Anthropic prompt structure (for reference):
  *   "You are OpenCode, the best coding agent on the planet."
  *   + environment block (cwd, OS, shell, date, etc.)
- *   + "Skills provide specialized instructions …"
+ *   + instructions and/or skills
  */
 function sanitizeAnthropicSystemText(
   text: string,
@@ -617,31 +616,31 @@ function sanitizeAnthropicSystemText(
 ) {
   const startIdx = text.indexOf(OPENCODE_IDENTITY);
   if (startIdx !== -1) {
-    // Main session path: strip from OpenCode identity to the Anthropic prompt marker.
-    // Keep the marker aligned with the current OpenCode Anthropic prompt.
-    const endIdx = text.indexOf(ANTHROPIC_PROMPT_MARKER, startIdx);
-    if (endIdx === -1) {
+    // Main session path: strip from OpenCode identity through its env block.
+    const envCloseIdx = text.indexOf(ENV_CLOSE_TAG, startIdx);
+    if (envCloseIdx === -1) {
       onError?.(
-        "sanitizeAnthropicSystemText: could not find Anthropic prompt marker after OpenCode identity",
+        "sanitizeAnthropicSystemText: could not find </env> after OpenCode identity",
       );
       return text;
     }
-    return replaceBlockWithCompactEnv(text, startIdx, endIdx);
+    const endIdx = envCloseIdx + ENV_CLOSE_TAG.length;
+    const afterEnd = text[endIdx] === "\n" ? endIdx + 1 : endIdx;
+    return replaceBlockWithCompactEnv(text, startIdx, afterEnd);
   }
 
   // Subagent path: opencode appends "You are powered by the model named ..."
   // followed by an <env> block. Strip from that line through </env>.
   const subagentIdx = text.indexOf(SUBAGENT_MODEL_IDENTITY);
   if (subagentIdx !== -1) {
-    const envCloseTag = "</env>";
-    const envCloseIdx = text.indexOf(envCloseTag, subagentIdx);
+    const envCloseIdx = text.indexOf(ENV_CLOSE_TAG, subagentIdx);
     if (envCloseIdx === -1) {
       onError?.(
         "sanitizeAnthropicSystemText: could not find </env> after subagent model identity",
       );
       return text;
     }
-    const endIdx = envCloseIdx + envCloseTag.length;
+    const endIdx = envCloseIdx + ENV_CLOSE_TAG.length;
     // Skip trailing newline so the join is clean
     const afterEnd =
       text[endIdx] === "\n" ? endIdx + 1 : endIdx;
