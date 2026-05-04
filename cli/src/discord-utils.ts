@@ -687,7 +687,7 @@ export async function resolveProjectDirectoryFromAutocomplete(
   if (!cachedParentId) {
     const fetched = await errore.tryAsync({
       try: () => { return interaction.client.channels.fetch(channelId) },
-      catch: (e) => { return e as Error },
+      catch: (e) => { return e },
     })
     if (!(fetched instanceof Error) && fetched?.isThread() && fetched.parentId) {
       const parentConfig = await getChannelDirectory(fetched.parentId)

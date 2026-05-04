@@ -482,7 +482,7 @@ export async function startDiscordBot({
         discordLogger.log(`Fetching partial message ${message.id}`)
         const fetched = await errore.tryAsync({
           try: () => message.fetch(),
-          catch: (e) => e as Error,
+          catch: (e) => e,
         })
         if (fetched instanceof Error) {
           discordLogger.log(

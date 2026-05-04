@@ -47,7 +47,7 @@ export async function handleRemoveProjectCommand({
     }>) {
       const channel = await errore.tryAsync({
         try: () => guild.channels.fetch(channel_id),
-        catch: (e) => e as Error,
+        catch: (e) => e,
       })
 
       if (channel instanceof Error) {
@@ -121,7 +121,7 @@ export async function handleRemoveProjectAutocomplete({
     for (const { directory, channel_id } of allChannels) {
       const channel = await errore.tryAsync({
         try: () => guild.channels.fetch(channel_id),
-        catch: (e) => e as Error,
+        catch: (e) => e,
       })
       if (channel instanceof Error) {
         // Channel not in this guild, skip

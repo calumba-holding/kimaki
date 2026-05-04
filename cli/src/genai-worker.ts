@@ -151,7 +151,7 @@ async function createAssistantAudioLogStream(
 
   const mkdirError = await errore.tryAsync({
     try: () => mkdir(audioDir, { recursive: true }),
-    catch: (e) => e as Error,
+    catch: (e) => e,
   })
   if (mkdirError instanceof Error) {
     workerLogger.error(

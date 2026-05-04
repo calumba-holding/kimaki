@@ -655,7 +655,7 @@ export async function processVoiceAttachment({
       const renamed = await Promise.race([
         errore.tryAsync({
           try: () => thread.setName(threadName),
-          catch: (e) => e as Error,
+          catch: (e) => e,
         }),
         new Promise<null>((resolve) => {
           setTimeout(() => {

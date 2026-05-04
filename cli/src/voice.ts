@@ -112,7 +112,7 @@ export function convertOggToWav(input: Buffer): Promise<TranscriptionError | Buf
       resolve(Buffer.concat([wavHeader, pcmData]))
     })
 
-    decoder.on('error', (err: Error) => {
+    decoder.on('error', (err) => {
       resolve(
         new TranscriptionError({
           reason: `Opus decode failed: ${err.message}`,
@@ -121,7 +121,7 @@ export function convertOggToWav(input: Buffer): Promise<TranscriptionError | Buf
       )
     })
 
-    demuxer.on('error', (err: Error) => {
+    demuxer.on('error', (err) => {
       resolve(
         new TranscriptionError({
           reason: `OGG demux failed: ${err.message}`,
@@ -187,7 +187,7 @@ export function convertM4aToWav(input: Buffer): Promise<TranscriptionError | Buf
       resolve(Buffer.concat([wavHeader, pcmData]))
     })
 
-    transcoder.on('error', (err: Error) => {
+    transcoder.on('error', (err) => {
       const lower = err.message.toLowerCase()
       const isMissingFfmpeg =
         lower.includes('ffmpeg') &&
@@ -407,7 +407,7 @@ async function runTranscriptionOnce({
   // doGenerate returns PromiseLike, wrap in Promise.resolve for errore compatibility
   const response = await errore.tryAsync({
     try: () => Promise.resolve(model.doGenerate(options)),
-    catch: (e: Error) =>
+    catch: (e) =>
       new TranscriptionError({
         reason: `API call failed: ${String(e)}`,
         cause: e,
