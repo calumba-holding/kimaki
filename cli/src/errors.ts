@@ -158,6 +158,12 @@ export class ConflictingFilesError extends createTaggedError({
     'Cannot merge: $target worktree has uncommitted changes in overlapping files. Commit changes in main worktree first, then run `/merge-worktree` again.',
 }) {}
 
+export class TargetDirtyWorktreeError extends createTaggedError({
+  name: 'TargetDirtyWorktreeError',
+  message:
+    'Cannot merge: $target worktree has uncommitted changes. Commit changes in main worktree first, then run `/merge-worktree` again.',
+}) {}
+
 export class PushError extends createTaggedError({
   name: 'PushError',
   message: 'Push to $target failed',
@@ -197,5 +203,6 @@ export type MergeWorktreeErrors =
   | RebaseError
   | NotFastForwardError
   | ConflictingFilesError
+  | TargetDirtyWorktreeError
   | PushError
   | GitCommandError

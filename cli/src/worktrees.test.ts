@@ -9,9 +9,11 @@ import {
   createWorktreeWithSubmodules,
   execAsync,
   getManagedWorktreeDirectory,
+  mergeWorktree,
   parseGitmodulesFileContent,
   parseGitWorktreeListPorcelain,
 } from './worktrees.js'
+import { TargetDirtyWorktreeError } from './errors.js'
 import {
   formatAutoWorktreeName,
   formatWorktreeName,
@@ -304,6 +306,44 @@ describe('worktrees', () => {
           return ''
         })
       }
+      fs.rmSync(sandbox, { recursive: true, force: true })
+    }
+  })
+
+  test('mergeWorktree rejects dirty checked-out target before local push', async () => {
+    const sandbox = createTestRoot()
+    const parentRepo = path.join(sandbox, 'parent')
+    const worktreeDir = path.join(sandbox, 'feature-worktree')
+
+    try {
+      fs.mkdirSync(parentRepo, { recursive: true })
+      await git({ cwd: parentRepo, args: ['init', '-b', 'main'] })
+      await git({ cwd: parentRepo, args: ['config', 'user.email', 'kimaki-tests@example.com'] })
+      await git({ cwd: parentRepo, args: ['config', 'user.name', 'Kimaki Tests'] })
+
+      fs.writeFileSync(path.join(parentRepo, 'README.md'), 'v1\n', 'utf-8')
+      await git({ cwd: parentRepo, args: ['add', 'README.md'] })
+      await git({ cwd: parentRepo, args: ['commit', '-m', 'init'] })
+
+      await git({ cwd: parentRepo, args: ['worktree', 'add', '-b', 'feature', worktreeDir] })
+      fs.writeFileSync(path.join(worktreeDir, 'feature.md'), 'feature\n', 'utf-8')
+      await git({ cwd: worktreeDir, args: ['add', 'feature.md'] })
+      await git({ cwd: worktreeDir, args: ['commit', '-m', 'feature'] })
+
+      fs.writeFileSync(path.join(parentRepo, 'README.md'), 'dirty main\n', 'utf-8')
+
+      const result = await mergeWorktree({
+        worktreeDir,
+        mainRepoDir: parentRepo,
+        worktreeName: 'feature',
+        targetBranch: 'main',
+      })
+
+      expect(result).toBeInstanceOf(TargetDirtyWorktreeError)
+      expect(await git({ cwd: parentRepo, args: ['rev-parse', 'main'] })).not.toBe(
+        await git({ cwd: worktreeDir, args: ['rev-parse', 'HEAD'] }),
+      )
+    } finally {
       fs.rmSync(sandbox, { recursive: true, force: true })
     }
   })

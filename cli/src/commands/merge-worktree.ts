@@ -21,7 +21,11 @@ import {
 import {
   getOrCreateRuntime,
 } from '../session-handler/thread-session-runtime.js'
-import { RebaseConflictError, DirtyWorktreeError } from '../errors.js'
+import {
+  RebaseConflictError,
+  DirtyWorktreeError,
+  TargetDirtyWorktreeError,
+} from '../errors.js'
 
 const logger = createLogger(LogPrefix.WORKTREE)
 
@@ -101,7 +105,7 @@ export async function handleMergeWorktreeCommand({
     return
   }
 
-  const thread = channel as ThreadChannel
+  const thread = channel
   const worktreeInfo = await getThreadWorktree(thread.id)
   if (!worktreeInfo) {
     await command.editReply('This thread is not associated with a worktree')
@@ -145,6 +149,13 @@ export async function handleMergeWorktreeCommand({
     if (result instanceof DirtyWorktreeError) {
       await command.editReply(
         'Merge failed: uncommitted changes in the worktree. Commit changes first, then run `/merge-worktree` again.',
+      )
+      return
+    }
+
+    if (result instanceof TargetDirtyWorktreeError) {
+      await command.editReply(
+        'Merge failed: uncommitted changes in main. Commit changes in the main worktree first, then run `/merge-worktree` again.',
       )
       return
     }

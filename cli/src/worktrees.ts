@@ -678,7 +678,7 @@ export async function createWorktreeWithSubmodules({
 // - RebaseConflictError        → git left mid-rebase for AI/user resolution
 // - RebaseError                → rebase not in progress; temp branch cleaned
 // - NotFastForwardError        → source intact; no push
-// - ConflictingFilesError      → no push; lists overlapping files
+// - TargetDirtyWorktreeError   → target branch is checked out and dirty; no push
 // - PushError                  → source rebased but target unchanged
 // - GitCommandError            → catch-all for unexpected git failures
 
@@ -688,7 +688,7 @@ import {
   RebaseConflictError,
   RebaseError,
   NotFastForwardError,
-  ConflictingFilesError,
+  TargetDirtyWorktreeError,
   PushError,
   GitCommandError,
   type MergeWorktreeErrors,
@@ -812,9 +812,15 @@ async function getGitCommonDir(dir: string): Promise<GitCommandError | string> {
 }
 
 async function isAncestor(
-  dir: string,
-  ref1: string,
-  ref2: string,
+  {
+    dir,
+    ref1,
+    ref2,
+  }: {
+    dir: string
+    ref1: string
+    ref2: string
+  },
 ): Promise<boolean> {
   const result = await git(dir, `merge-base --is-ancestor "${ref1}" "${ref2}"`)
   return !(result instanceof Error)
@@ -832,90 +838,23 @@ async function isRebasedOnto(dir: string, target: string): Promise<boolean> {
   return mergeBase === targetSha
 }
 
-async function getChangedFiles(
-  dir: string,
-  ref1: string,
-  ref2: string,
-): Promise<string[]> {
-  const result = await git(dir, `diff --name-only "${ref1}" "${ref2}"`)
-  if (result instanceof Error) {
-    return []
-  }
-  return result.split('\n').filter(Boolean)
-}
-
 /**
- * Get dirty files using porcelain -z format.
- * Handles rename/copy entries which emit two NUL-separated paths.
+ * Check if updateInstead would have to update a dirty checked-out target.
+ * Git rejects local pushes to the current branch when that worktree is dirty,
+ * even if the dirty files do not overlap with the incoming commits.
  */
-async function getDirtyFiles(dir: string): Promise<string[]> {
-  const result = await git(dir, 'status --porcelain -z')
-  if (result instanceof Error) {
-    return []
-  }
-  const files: string[] = []
-  const parts = result.split('\0')
-  let i = 0
-  while (i < parts.length) {
-    const entry = parts[i]
-    if (!entry || entry.length < 3) {
-      i++
-      continue
-    }
-    const status = entry.slice(0, 2)
-    const filePath = entry.slice(3)
-    if (filePath) {
-      files.push(filePath)
-    }
-    if (
-      status[0] === 'R' ||
-      status[0] === 'C' ||
-      status[1] === 'R' ||
-      status[1] === 'C'
-    ) {
-      i++
-      const oldPath = parts[i]
-      if (oldPath) {
-        files.push(oldPath)
-      }
-    }
-    i++
-  }
-  return files
-}
-
-/**
- * Check if target worktree has dirty files overlapping with the push range.
- * updateInstead only modifies the working tree when pushing to the currently
- * checked-out branch. If the main repo is on a different branch, the push
- * won't touch the working tree at all, so there's nothing to conflict with.
- */
-async function checkTargetWorktreeConflicts({
+async function isCheckedOutTargetDirty({
   targetDir,
-  sourceDir,
   targetBranch,
 }: {
   targetDir: string
-  sourceDir: string
   targetBranch: string
-}): Promise<string[] | null> {
-  // Only check for conflicts if the main repo has the target branch checked out.
-  // updateInstead only updates the working tree for the currently checked-out
-  // branch — if the main repo is on a different branch, the push to targetBranch
-  // won't touch the working tree at all.
+}): Promise<boolean> {
   const currentBranch = await git(targetDir, 'symbolic-ref --short HEAD')
   if (currentBranch instanceof Error || currentBranch !== targetBranch) {
-    return null
+    return false
   }
-  if (!(await isDirty(targetDir))) {
-    return null
-  }
-  const pushFiles = await getChangedFiles(sourceDir, targetBranch, 'HEAD')
-  const dirtyFiles = await getDirtyFiles(targetDir)
-  const overlapping = pushFiles.filter((f) => {
-    return dirtyFiles.includes(f)
-  })
-  return overlapping.length > 0 ? overlapping : null
+  return await isDirty(targetDir)
 }
 
 /**
@@ -1081,19 +1020,18 @@ export async function mergeWorktree({
   }
 
   // ── Step 4: Fast-forward push via local git push ──
-  if (!(await isAncestor(worktreeDir, defaultBranch, 'HEAD'))) {
+  if (!(await isAncestor({ dir: worktreeDir, ref1: defaultBranch, ref2: 'HEAD' }))) {
     await cleanupTempBranch()
     return new NotFastForwardError({ target: defaultBranch })
   }
 
-  const overlappingFiles = await checkTargetWorktreeConflicts({
+  const targetIsDirty = await isCheckedOutTargetDirty({
     targetDir: mainRepoDir,
-    sourceDir: worktreeDir,
     targetBranch: defaultBranch,
   })
-  if (overlappingFiles) {
+  if (targetIsDirty) {
     await cleanupTempBranch()
-    return new ConflictingFilesError({ target: defaultBranch })
+    return new TargetDirtyWorktreeError({ target: defaultBranch })
   }
 
   const gitCommonDir = await getGitCommonDir(worktreeDir)
