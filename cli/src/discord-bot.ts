@@ -122,6 +122,7 @@ import {
 import fs from 'node:fs'
 import path from 'node:path'
 import * as errore from 'errore'
+import dedent from 'string-dedent'
 import { createLogger, formatErrorWithStack, LogPrefix } from './logger.js'
 import { writeHeapSnapshot, startHeapMonitor } from './heap-monitor.js'
 import { startTaskRunner } from './task-runner.js'
@@ -134,6 +135,21 @@ import { startTaskRunner } from './task-runner.js'
 
 const discordLogger = createLogger(LogPrefix.DISCORD)
 const voiceLogger = createLogger(LogPrefix.VOICE)
+
+const MISSING_MESSAGE_CONTENT_REPLY = dedent`
+  I can see you sent a message, but Discord did not include its text.
+  Mention me and send it again, like \`@Kimaki fix the failing test\`, so I can read it.
+  To avoid this reminder, start Kimaki with \`--mention-mode\` so it only reacts to mentioned messages.
+`
+
+function isMissingReadableMessageContent(message: Message) {
+  if (message.author.bot) return false
+  if (message.content.trim()) return false
+  if (message.attachments.size > 0) return false
+  if (message.embeds.length > 0) return false
+  if (message.stickers.size > 0) return false
+  return true
+}
 
 // Well-known WebSocket and Discord Gateway close codes for diagnostic logging.
 // Gateway proxy redeploys cause an abrupt TCP drop (code 1006) because the proxy
@@ -667,6 +683,14 @@ export async function startDiscordBot({
           return
         }
 
+        if (isMissingReadableMessageContent(message)) {
+          await message.reply({
+            content: MISSING_MESSAGE_CONTENT_REPLY,
+            flags: SILENT_MESSAGE_FLAGS,
+          })
+          return
+        }
+
         const resolvedProjectDir = projectDirectory
 
         const sdkDir =
@@ -797,6 +821,14 @@ export async function startDiscordBot({
           await message.reply({
             content: `✗ Directory does not exist: ${JSON.stringify(projectDirectory).slice(0, 1900)}`,
             flags: NOTIFY_MESSAGE_FLAGS,
+          })
+          return
+        }
+
+        if (isMissingReadableMessageContent(message)) {
+          await message.reply({
+            content: MISSING_MESSAGE_CONTENT_REPLY,
+            flags: SILENT_MESSAGE_FLAGS,
           })
           return
         }

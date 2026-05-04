@@ -35,6 +35,7 @@ import {
   initDatabase,
   closeDatabase,
   setChannelDirectory,
+  setChannelMentionMode,
   setChannelVerbosity,
   type VerbosityLevel,
 } from './database.js'
@@ -56,6 +57,9 @@ import type { ThreadStartMarker } from './system-message.js'
 const TEST_USER_ID = '200000000000000830'
 const TEXT_CHANNEL_ID = '200000000000000831'
 const BOT_USER_ID = '200000000000000832'
+const EMPTY_CONTENT_CHANNEL_ID = '200000000000000833'
+const MENTION_MODE_EMPTY_CONTENT_CHANNEL_ID = '200000000000000834'
+const THREAD_EMPTY_CONTENT_CHANNEL_ID = '200000000000000835'
 
 function createRunDirectories() {
   const root = path.resolve(process.cwd(), 'tmp', 'cli-send-thread-e2e')
@@ -145,7 +149,7 @@ describe('kimaki send --channel thread creation', () => {
   beforeAll(async () => {
     testStartTime = Date.now()
     directories = createRunDirectories()
-    const lockPort = chooseLockPort({ key: TEXT_CHANNEL_ID })
+    const lockPort = chooseLockPort({ key: 'cli-send-thread-e2e' })
 
     process.env['KIMAKI_LOCK_PORT'] = String(lockPort)
     setDataDir(directories.dataDir)
@@ -161,17 +165,27 @@ describe('kimaki send --channel thread creation', () => {
       botUser: { id: BOT_USER_ID },
       guild: {
         name: 'CLI Send E2E Guild',
-        // Use bot as guild owner so bot-authored messages pass
-        // hasKimakiBotPermission (owner check). This matches production where
-        // the bot typically has admin or is the app owner. Without this, the
-        // MessageCreate handler drops bot messages before reaching the GuildText
-        // path, hiding the race condition we're testing.
-        ownerId: BOT_USER_ID,
+        ownerId: TEST_USER_ID,
       },
       channels: [
         {
           id: TEXT_CHANNEL_ID,
           name: 'cli-send-e2e',
+          type: ChannelType.GuildText,
+        },
+        {
+          id: EMPTY_CONTENT_CHANNEL_ID,
+          name: 'empty-content-e2e',
+          type: ChannelType.GuildText,
+        },
+        {
+          id: MENTION_MODE_EMPTY_CONTENT_CHANNEL_ID,
+          name: 'mention-mode-empty-content-e2e',
+          type: ChannelType.GuildText,
+        },
+        {
+          id: THREAD_EMPTY_CONTENT_CHANNEL_ID,
+          name: 'thread-empty-content-e2e',
           type: ChannelType.GuildText,
         },
       ],
@@ -227,6 +241,21 @@ describe('kimaki send --channel thread creation', () => {
       directory: directories.projectDirectory,
       channelType: 'text',
     })
+    await setChannelDirectory({
+      channelId: EMPTY_CONTENT_CHANNEL_ID,
+      directory: directories.projectDirectory,
+      channelType: 'text',
+    })
+    await setChannelDirectory({
+      channelId: MENTION_MODE_EMPTY_CONTENT_CHANNEL_ID,
+      directory: directories.projectDirectory,
+      channelType: 'text',
+    })
+    await setChannelDirectory({
+      channelId: THREAD_EMPTY_CONTENT_CHANNEL_ID,
+      directory: directories.projectDirectory,
+      channelType: 'text',
+    })
     await setChannelVerbosity(TEXT_CHANNEL_ID, 'tools_and_text')
 
     botClient = createDiscordJsClient({ restUrl: discord.restUrl })
@@ -253,7 +282,7 @@ describe('kimaki send --channel thread creation', () => {
       })
     }
     if (botClient) {
-      botClient.destroy()
+      void botClient.destroy()
     }
     await stopOpencodeServer()
     await Promise.all([
@@ -276,6 +305,123 @@ describe('kimaki send --channel thread creation', () => {
       fs.rmSync(directories.dataDir, { recursive: true, force: true })
     }
   }, 5_000)
+
+  test(
+    'empty project-channel message asks user to mention the bot instead of creating a thread',
+    async () => {
+      await discord
+        .channel(EMPTY_CONTENT_CHANNEL_ID)
+        .user(TEST_USER_ID)
+        .sendMessage({
+          content: '',
+        })
+
+      await waitForBotMessageContaining({
+        discord,
+        threadId: EMPTY_CONTENT_CHANNEL_ID,
+        userId: discord.botUserId,
+        text: 'Mention me and send it again',
+        timeout: 4_000,
+      })
+
+      expect(
+        await discord.channel(EMPTY_CONTENT_CHANNEL_ID).text(),
+      ).toMatchInlineSnapshot(`
+        "--- from: user (cli-send-tester)
+        --- from: assistant (TestBot)
+        I can see you sent a message, but Discord did not include its text.
+        Mention me and send it again, like \`@Kimaki fix the failing test\`, so I can read it.
+        To avoid this reminder, start Kimaki with \`--mention-mode\` so it only reacts to mentioned messages."
+      `)
+
+      const threads = await discord.channel(EMPTY_CONTENT_CHANNEL_ID).getThreads()
+      expect(threads).toHaveLength(0)
+    },
+    8_000,
+  )
+
+  test(
+    'mention mode silently ignores empty project-channel messages without warning',
+    async () => {
+      await setChannelMentionMode(MENTION_MODE_EMPTY_CONTENT_CHANNEL_ID, true)
+      await discord
+        .channel(MENTION_MODE_EMPTY_CONTENT_CHANNEL_ID)
+        .user(TEST_USER_ID)
+        .sendMessage({
+          content: '',
+        })
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, 300)
+      })
+
+      expect(
+        await discord.channel(MENTION_MODE_EMPTY_CONTENT_CHANNEL_ID).text(),
+      ).toMatchInlineSnapshot(`"--- from: user (cli-send-tester)"`)
+
+      const threads = await discord
+        .channel(MENTION_MODE_EMPTY_CONTENT_CHANNEL_ID)
+        .getThreads()
+      expect(threads).toHaveLength(0)
+    },
+    8_000,
+  )
+
+  test(
+    'empty existing-thread message asks user to mention the bot instead of enqueueing a prompt',
+    async () => {
+      await discord
+        .channel(THREAD_EMPTY_CONTENT_CHANNEL_ID)
+        .user(TEST_USER_ID)
+        .sendMessage({
+          content: 'thread empty content seed',
+        })
+
+      const thread = await discord
+        .channel(THREAD_EMPTY_CONTENT_CHANNEL_ID)
+        .waitForThread({
+          timeout: 4_000,
+          predicate: (t) => {
+            return t.name === 'thread empty content seed'
+          },
+        })
+
+      await waitForFooterMessage({
+        discord,
+        threadId: thread.id,
+        timeout: 4_000,
+        afterMessageIncludes: 'caught-by-model',
+        afterAuthorId: discord.botUserId,
+      })
+
+      await discord.thread(thread.id).user(TEST_USER_ID).sendMessage({
+        content: '',
+      })
+
+      await waitForBotMessageContaining({
+        discord,
+        threadId: thread.id,
+        userId: discord.botUserId,
+        text: 'Mention me and send it again',
+        timeout: 4_000,
+      })
+
+      expect(await discord.thread(thread.id).text()).toMatchInlineSnapshot(`
+        "--- from: user (cli-send-tester)
+        thread empty content seed
+        --- from: assistant (TestBot)
+        *using deterministic-provider/deterministic-v2*
+        ⬥ caught-by-model
+        *project ⋅ main ⋅ Ns ⋅ N% ⋅ deterministic-v2*
+        --- from: user (cli-send-tester)
+        --- from: assistant (TestBot)
+        I can see you sent a message, but Discord did not include its text.
+        Mention me and send it again, like \`@Kimaki fix the failing test\`, so I can read it.
+        To avoid this reminder, start Kimaki with \`--mention-mode\` so it only reacts to mentioned messages."
+      `)
+    },
+    12_000,
+  )
 
   test(
     'kimaki send --prompt "/hello-test-cmd" falls through as text when registeredUserCommands is empty (repro #97)',
