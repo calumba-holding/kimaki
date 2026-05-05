@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.9.0
+
+1. **Multi-provider OAuth account rotation** — Kimaki now manages OAuth account pools for both Anthropic and OpenAI. Accounts are rotated on rate-limit retries, and OpenAI tokens display extracted identity metadata when available:
+
+   ```bash
+   kimaki multioauth list
+   kimaki multioauth anthropic list
+   kimaki multioauth anthropic current
+   kimaki multioauth openai list
+   kimaki multioauth openai current
+   kimaki multioauth openai check
+   ```
+
+2. **`kimaki send --user` works without Server Members Intent** — the `--user` flag now accepts raw Discord IDs and mentions directly, so servers that lack the privileged intent can still target users from the CLI:
+
+   ```bash
+   kimaki send --channel 123 --prompt 'Review this' --user '535922349652836367'
+   kimaki send --channel 123 --prompt 'Review this' --user '<@535922349652836367>'
+   ```
+
+   Onboarding now only requires Message Content Intent. If member lookup fails, Kimaki shows fallback guidance instead of crashing.
+
+3. **Respect manual Discord thread renames** — if you rename a thread after Kimaki created it, future OpenCode title syncs and bot restarts will preserve your custom name instead of overwriting it. Fixes #115
+
+4. **Preserve Anthropic project instructions** — the system prompt sanitizer now only strips the OpenCode identity block, keeping project instructions, skill instructions, and agent context intact. Fixes #116
+
+5. **Clearer `/merge-worktree` failures** — when the target worktree has uncommitted changes, the error now tells you to commit or clean the main worktree first instead of showing a generic git push failure.
+
+6. **Fix voice agent selection** — casual mentions of agent names (like "ask the build agent what changed") no longer accidentally switch the active agent. Only clear command phrases at the start of a message trigger agent selection.
+
+7. **Handle unreadable Discord messages** — when Message Content Intent is unavailable and Discord withholds text, Kimaki now tells the user to mention the bot instead of creating empty threads. Also points to `--mention-mode` for intentional setups.
+
+8. **Removed personal-only skills from npm package** — shipped skills now exclude workflow-specific tools like `jitter`, `proxyman`, `x-articles` that belong in personal config.
+
+9. **Quieter `kimaki project add`** — removed redundant pre-create log message during channel creation.
+
 ## 0.8.1
 
 1. **Fixed Bun crash on startup** — `bunx --bun kimaki@latest` crashed with `TypeError: null is not an object (evaluating 'body.pid')` during Hrana server startup because Bun's `response.json()` can return `null` instead of throwing. Added null guards across all fetch `.json()` call sites.
