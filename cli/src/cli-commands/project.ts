@@ -199,8 +199,6 @@ cli
         )
       }
 
-      cliLogger.log(`Creating channels in ${guild.name}...`)
-
       const { textChannelId, voiceChannelId, channelName } =
         await createProjectChannels({
           guild,
@@ -210,7 +208,9 @@ cli
 
       void client.destroy()
 
-      cliLogger.log('Channels created!')
+      if (textChannelId || voiceChannelId) {
+        cliLogger.log('Channels created!')
+      }
 
       const channelUrl = `https://discord.com/channels/${guild.id}/${textChannelId}`
 
