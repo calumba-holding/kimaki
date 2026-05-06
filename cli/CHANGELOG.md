@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1
+
+1. **Fixed worktree sessions for non-git-root project folders** — when worktrees are enabled but the configured project folder is not the git repository root, Kimaki now falls back to a normal session in that folder instead of creating a broken worktree record that makes every follow-up message reply with a worktree error. Fixes #112
+
+2. **`kimaki tunnel` auto-detects port without `--port`** — when running `kimaki tunnel -- <dev server>`, Kimaki now waits for the dev server to print a localhost URL or port line and detects the port automatically. The `--port` flag is still available for servers that don't print a detectable port.
+
 ## 0.9.0
 
 1. **Multi-provider OAuth account rotation** — Kimaki now manages OAuth account pools for both Anthropic and OpenAI. Accounts are rotated on rate-limit retries, and OpenAI tokens display extracted identity metadata when available:
