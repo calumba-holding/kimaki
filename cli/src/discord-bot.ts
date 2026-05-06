@@ -20,7 +20,7 @@ import {
   stopOpencodeServer,
 } from './opencode.js'
 import { formatAutoWorktreeName, createWorktreeInBackground, worktreeCreatingMessage } from './commands/new-worktree.js'
-import { validateWorktreeDirectory, git } from './worktrees.js'
+import { validateWorktreeDirectory, git, isGitRepositoryRoot } from './worktrees.js'
 import { WORKTREE_PREFIX } from './commands/merge-worktree.js'
 import {
   escapeBackticksInCodeBlocks,
@@ -857,9 +857,21 @@ export async function startDiscordBot({
               .replace(/\s+/g, ' ')
               .trim() || 'kimaki thread'
 
-        // Check if worktrees should be enabled (CLI flag OR channel setting)
-        const shouldUseWorktrees =
+        // Check if worktrees should be enabled (CLI flag OR channel setting).
+        // Only create worktrees from the configured project directory when that
+        // directory is itself the git root. If the user registered a non-git
+        // workspace folder under a larger repo, git would create the worktree
+        // from the parent repo and strand follow-up messages on failure.
+        const wantsWorktrees =
           useWorktrees || (await getChannelWorktreesEnabled(channel.id))
+        const shouldUseWorktrees =
+          wantsWorktrees && (await isGitRepositoryRoot(projectDirectory))
+
+        if (wantsWorktrees && !shouldUseWorktrees) {
+          discordLogger.warn(
+            `[WORKTREE] Skipping automatic worktree for non-git project directory: ${projectDirectory}`,
+          )
+        }
 
         // Add worktree prefix if worktrees are enabled
         const threadName = shouldUseWorktrees
@@ -1062,7 +1074,7 @@ export async function startDiscordBot({
       // The runtime is created immediately so follow-up messages queue
       // naturally; the worktree promise is awaited inside enqueueIncoming.
       let worktreePromise: Promise<string | Error> | undefined
-      if (marker.worktree) {
+      if (marker.worktree && (await isGitRepositoryRoot(projectDirectory))) {
         discordLogger.log(`[BOT_SESSION] Creating worktree: ${marker.worktree}`)
 
         const worktreeStatusMessage = await thread
@@ -1079,6 +1091,10 @@ export async function startDiscordBot({
           projectDirectory,
           rest: discordClient.rest,
         })
+      } else if (marker.worktree) {
+        discordLogger.warn(
+          `[BOT_SESSION] Skipping requested worktree for non-git project directory: ${projectDirectory}`,
+        )
       }
 
       // --cwd: reuse an existing worktree directory. Revalidate at bot-time

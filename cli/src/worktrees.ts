@@ -800,6 +800,14 @@ export async function isDirty(
   return status.length > 0
 }
 
+export async function isGitRepositoryRoot(directory: string): Promise<boolean> {
+  const topLevel = await git(directory, 'rev-parse --show-toplevel')
+  if (topLevel instanceof Error) {
+    return false
+  }
+  return path.resolve(topLevel) === path.resolve(directory)
+}
+
 async function getGitCommonDir(dir: string): Promise<GitCommandError | string> {
   const commonDir = await git(dir, 'rev-parse --git-common-dir')
   if (commonDir instanceof Error) {
